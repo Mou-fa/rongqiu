@@ -49,8 +49,14 @@ SYSTEM = """你是「绒球」系统的语义三元组抽取器。
               这两项，你倾向哪一个方向，以及理由（一句话）
 """
 
-PROMPT = """【原核】
+PROMPT = """【原核】（用户问题的规范化三元组）
 {question}
+
+【原核的二元问题】
+{binary}
+
+判断相关性的唯一标准：一条事件只要和上面三元组共享**代理或资源**，
+就是候选接触面；两者都不共享的，即使话题相近也丢弃。
 
 【文本】（来源：{source}）
 {text}
@@ -104,11 +110,19 @@ def extract(question: str, texts: list[tuple[str, str]],
     if not available(cfg):
         raise RuntimeError("没有可用的 LLM 配置，无法抽取。见 configs/llm.yaml")
 
-    out = Extraction(question=question, model=cfg.model)
+    # 原核可以是一条规范化三元组（Nucleus），也可以是一句自由文本。
+    # 三元组是标准路径：它和互联网文本抽出来的东西在同一套表示里，
+    # 匹配才有依据。自由文本只用于快速探索。
+    binary = question
+    q = question
+    if hasattr(question, "binary"):
+        binary, q = question.binary, question.as_text()
+
+    out = Extraction(question=q, model=cfg.model)
     merged: dict[str, Triple] = {}
 
     for source, text in texts:
-        raw = complete(PROMPT.format(question=question, source=source, text=text),
+        raw = complete(PROMPT.format(question=q, binary=binary, source=source, text=text),
                        system=SYSTEM, cfg=cfg)
         if not raw:
             continue
@@ -177,7 +191,8 @@ def consensus(question: str, texts: list[tuple[str, str]], runs: int = 5,
         t.frequency = round(freq, 3)
         kept.append(t)
 
-    out = Extraction(question=question, model=cfg.model)
+    out = Extraction(question=(question.as_text() if hasattr(question, "as_text")
+                               else question), model=cfg.model)
     out.facts = kept
     out.assumption = merged_meta["assumption"]
     out.unknown = merged_meta["unknown"]
