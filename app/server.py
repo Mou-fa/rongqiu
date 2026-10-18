@@ -111,7 +111,12 @@ def api_judge(body: JudgeBody):
         mapping = origin.cluster(web)
         for i, f in enumerate(web):
             f.origin = mapping.get(i, -1)
-    assumption = body.assumption or "我点选的这几条如实反映了我的情况"
+    if body.assumption:
+        assumption = body.assumption
+    elif body.selected:
+        assumption = "我点选的这几条如实反映了我的情况"
+    else:
+        assumption = "全网场景都不适用于我，只看我自己说出的处境"
     unknown = body.unknown or "当时是否存在我没考虑到的其他情况"
     nd = node.build_from_review(body.binary, facts, assumption=assumption,
                                 unknown=unknown)

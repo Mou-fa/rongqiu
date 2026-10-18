@@ -138,9 +138,13 @@ function renderPrompts() {
 function updateBar() {
   const n = STATE.picked.size;
   const c = $("#picked-count");
-  if (c) c.textContent = "已选 " + n + " 条";
+  if (c) c.textContent = n === 0 ? "已选 0 条（当前显示：只用你自己的处境）" : "已选 " + n + " 条";
   const b = $("#btn-judge");
-  if (b) b.disabled = n === 0;
+  if (!b) return;
+  // 永远可点：用户要来回比对，不能因为取消到 0 条就锁死。
+  // 0 条时的语义是「还原」——只用用户自述重新算一遍。
+  b.disabled = false;
+  b.textContent = n === 0 ? "还原判断" : "加入判断";
 }
 
 function supportSplit(j) {
@@ -169,7 +173,7 @@ async function judgeAgain() {
   } catch (e) {
     alert("出错了：" + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = "加入判断";
+    updateBar();
   }
 }
 
