@@ -51,12 +51,31 @@ def api_ask(body: AskBody):
     query = f"{nu.agent} {nu.event} {nu.resource}"
     results = search.search(query, cfg)
     cands = indexer.rank(nu, results, min_hits=2)
+
+    # 系统先用 811 + REA 自己判一次，不要求用户做任何操作。
+    # 「这些场景适用于我」本来就是假设槽该装的东西，系统可以自己承担这个假设。
+    auto = None
+    if cands:
+        facts = [review.SceneFact(scene=c.text, source=c.source, order=i)
+                 for i, c in enumerate(cands)]
+        review.direction_of(facts, nu.binary)
+        nd = node.build_from_review(
+            nu.binary, facts,
+            assumption="下面这些场景都适用于我的情况（系统默认假设）",
+            unknown="我这次的具体情况，以及我还没说出来的约束")
+        j = nd.judge()
+        if j is not None:
+            entry = journal.record(j, body.question, resolve_days=7)
+            auto = j.as_dict()
+            auto["id"] = entry["id"]
+
     return {
         "nucleus": nu.as_dict(),
         "query": query,
         "provider": cfg.provider if cfg.api_key else "local",
         "candidates": [c.as_dict() for c in cands],
         "total_hits": len(results),
+        "auto": auto,
     }
 
 

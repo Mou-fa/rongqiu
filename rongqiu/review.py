@@ -63,14 +63,36 @@ def select(candidates, selected: list[int] | None = None) -> tuple[list, list]:
     return chosen, rejected
 
 
-def direction_of(scenes: list[SceneFact], nucleus_binary: str, cfg=None) -> list[SceneFact]:
-    """系统判定每条被选中场景的倾向。一次调用判完全部，保证前后一致。"""
+def direction_of(scenes: list[SceneFact], nucleus_binary: str, cfg=None,
+                 runs: int = 3) -> list[SceneFact]:
+    """系统判定每条场景的倾向。
+
+    跑 runs 次取多数。单次调用不稳定——同一个场景换个时间判，方向可能反。
+    抽取已经用共识解决了随机性，判向不能例外：它直接决定 N 和支持率。
+    """
     cfg = cfg or load_config()
     if not scenes or not available(cfg):
         for s in scenes:
             s.supports = NEUTRAL
         return scenes
+    if runs > 1:
+        votes: dict[int, list[str]] = {}
+        for _ in range(runs):
+            single = [SceneFact(scene=s.scene, source=s.source, order=s.order)
+                      for s in scenes]
+            _direction_once(single, nucleus_binary, cfg)
+            for s in single:
+                votes.setdefault(s.order, []).append(s.supports)
+        for s in scenes:
+            vs = votes.get(s.order, [])
+            if vs:
+                s.supports = max(set(vs), key=vs.count)
+        return scenes
+    _direction_once(scenes, nucleus_binary, cfg)
+    return scenes
 
+
+def _direction_once(scenes: list[SceneFact], nucleus_binary: str, cfg) -> list[SceneFact]:
     lines = "\n".join(f"{i}. {s.scene}" for i, s in enumerate(scenes))
     prompt = (f"【原核】{nucleus_binary}，这件事会成立吗？\n\n"
               f"【场景】\n{lines}\n\n"
