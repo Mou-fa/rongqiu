@@ -31,24 +31,35 @@ def test_no_maps_to_oppose():
 
 
 def test_negative_polarity_flips_direction(monkeypatch, tmp_path):
-    """反向词条：答「是」意味着卡在等和怕里，默认结局是不做 → oppose。
+    """反向词条：答「是」指向「不会」。
 
-    「人们总是在等和怕中来回折腾」——等是用时间换确定性，怕是用不行动
-    换安全，两者互相触发成闭环。卡在闭环里，越等越怕，最后往往是不做。
+    机制本身要保留——将来可能真出现方向相反的问句。
     """
     bank = tmp_path / "questions.yaml"
     bank.write_text(
         "questions:\n"
-        "  - id: still_waiting\n"
-        "    text: 这件事你已经反复想了一阵子，是吗？\n"
+        "  - id: neg\n"
+        "    text: 你是不是已经决定不做了？\n"
         "    polarity: negative\n",
         encoding="utf-8")
     monkeypatch.setattr(questions, "QUESTIONS_PATH", bank)
 
-    yes = questions.answers_to_facts([{"id": "still_waiting", "answer": "yes"}])[0]
-    no = questions.answers_to_facts([{"id": "still_waiting", "answer": "no"}])[0]
+    yes = questions.answers_to_facts([{"id": "neg", "answer": "yes"}])[0]
+    no = questions.answers_to_facts([{"id": "neg", "answer": "no"}])[0]
     assert yes.supports == OPPOSE
     assert no.supports == SUPPORT
+
+
+def test_pondering_means_wanting():
+    """「反复想了一阵子」答「是」→ 支持。
+
+    人不会为不在乎的事反复纠结。只有重要的、想要的、怕失去的东西，
+    才值得在脑子里来回权衡。所以这个行为泄露的不是犹豫，是在乎。
+    """
+    yes = questions.answers_to_facts([{"id": "still_waiting", "answer": "yes"}])[0]
+    no = questions.answers_to_facts([{"id": "still_waiting", "answer": "no"}])[0]
+    assert yes.supports == SUPPORT
+    assert no.supports == OPPOSE
 
 
 def test_positive_polarity_is_the_default(monkeypatch, tmp_path):
@@ -61,10 +72,15 @@ def test_positive_polarity_is_the_default(monkeypatch, tmp_path):
 
 
 def test_bank_has_the_two_canonical_questions():
-    """问题库里现有的两句：上次怎么选（正向）、还在折腾吗（反向）。"""
+    """问题库里现有的两句，极性都是 positive。
+
+    still_waiting 原本定成 negative（纠结=卡住=不做），后来被纠正：
+    人不会为不在乎的事反复纠结，反复想说明在乎，潜意识里是想去的。
+    所以答「是」→ 支持。
+    """
     ids = {q["id"]: q for q in questions.load()}
     assert "last_time" in ids and ids["last_time"]["polarity"] == "positive"
-    assert "still_waiting" in ids and ids["still_waiting"]["polarity"] == "negative"
+    assert "still_waiting" in ids and ids["still_waiting"]["polarity"] == "positive"
 
 
 def test_invalid_answer_is_ignored():

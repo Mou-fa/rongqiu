@@ -1,0 +1,4 @@
+questions:
+  - id: neg
+    text: 你是不是已经决定不做了？
+    polarity: negative
