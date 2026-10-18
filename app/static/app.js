@@ -239,16 +239,31 @@ function renderStructure(j) {
         '（事实层只允许二元对立）</div>'
       : '') +
     (j.assumption ? '<div class="slots"><div class="slot"><b>假设</b>　' + esc(j.assumption) + '</div></div>' : '') +
-    (j.unknown ? '<div class="slots"><div class="slot"><b>未知</b>　' + esc(j.unknown) + '</div></div>' : '') +
-    // 倾向只在用户真的动过之后才出现。
-    // 测试还没开始就给出「更可能是：不会 置信 33%」，会被读成结论——
-    // 那会误导人，以为系统已经判完了。所以首次显示为空。
-    (STATE.engaged
-      ? '<div class="tiny-ref"><span>系统参考倾向</span>' +
-        '<b style="color:' + (j.lean === "yes" ? "var(--accent)" : "var(--warn)") + '">' +
-        (j.lean === "yes" ? "更可能是：会" : "更可能是：不会") + '</b>' +
-        '<span>置信 ' + (j.confidence * 100).toFixed(0) + '%</span></div>'
-      : '');
+    (j.unknown ? '<div class="slots"><div class="slot"><b>未知</b>　' + esc(j.unknown) + '</div></div>' : '');
+
+  // 倾向不放在结构块里了——它挪到底部操作栏，紧挨着按钮。
+  // 这样「结构」区永远是纯事实，结论单独待在一个位置。
+  STATE.lastJudgment = j;
+  updateVerdict();
+}
+
+// 把参考倾向填进底部操作栏。
+// 只在用户真的动过之后才出现：测试还没开始就给出「更可能是：不会」，
+// 会被读成一个已经判完的结论，那是误导。
+function updateVerdict() {
+  const el = document.getElementById("verdict");
+  if (!el) return;
+  const j = STATE.lastJudgment;
+  if (!j || !STATE.engaged) {
+    el.innerHTML = "";
+    return;
+  }
+  const yes = j.lean === "yes";
+  el.innerHTML =
+    '<span class="vlabel">参考倾向</span>' +
+    '<b style="color:' + (yes ? "var(--accent)" : "var(--warn)") + '">' +
+    (yes ? "更可能是：会" : "更可能是：不会") + '</b>' +
+    '<span class="vconf">置信 ' + (j.confidence * 100).toFixed(0) + '%</span>';
 }
 
 function renderPrompts() {
@@ -259,8 +274,11 @@ function renderPrompts() {
     '<p class="hint">从全网找到的原文，已浓缩成一句话。本身不算证据，' +
     '点选真正符合你的，才加入判断。</p>' +
     '<div class="cands" id="cand-list"></div>' +
-    '<div class="bar"><span id="picked-count">已选 0 条</span>' +
-    '<button id="btn-judge" class="primary">加入判断</button></div>' +
+    '<div class="bar">' +
+      '<span id="picked-count">已选 0 条</span>' +
+      '<span id="verdict" class="bar-verdict"></span>' +
+      '<button id="btn-judge" class="primary">加入判断</button>' +
+    '</div>' +
     '<div id="judge-note" class="judge-note hidden"></div>';
   const list = $("#cand-list");
   STATE.candidates.forEach((c, i) => {
@@ -277,6 +295,7 @@ function renderPrompts() {
   });
   $("#btn-judge").onclick = judgeAgain;
   updateBar();
+  updateVerdict();
 }
 
 function updateBar() {
