@@ -213,8 +213,6 @@ function renderStructure(j) {
   if (!j) {
     box.innerHTML = '<p class="hint">你没有在问题里说出自己的处境，所以系统没有可判定的' +
       '第一接触面。下面是从网上找到的、可能符合你的情况——点选之后加入判断。</p>';
-    const ev0 = document.getElementById("evidence-block");
-    if (ev0) ev0.innerHTML = "";
     return;
   }
   const sp = j.split || { determinable: j.determinability, assumption: 0.1, unknown: 0.1 };
@@ -241,19 +239,6 @@ function renderStructure(j) {
       : '') +
     (j.assumption ? '<div class="slots"><div class="slot"><b>假设</b>　' + esc(j.assumption) + '</div></div>' : '') +
     (j.unknown ? '<div class="slots"><div class="slot"><b>未知</b>　' + esc(j.unknown) + '</div></div>' : '');
-
-  // 依据作为明细，渲染到页面最下方的独立块里
-  const ev = $("#evidence-block");
-  if (ev) {
-    ev.innerHTML =
-      '<div class="label" style="margin-top:20px">依据（全部公开）</div>' +
-      '<ul class="evidence">' + j.facts.map(f => {
-        const cls = f.supports === "support" ? "p" : f.supports === "oppose" ? "m" : "z";
-        const sym = f.supports === "support" ? "+" : f.supports === "oppose" ? "−" : "·";
-        return '<li><span class="mark ' + cls + '">' + sym + '</span><span>' +
-          esc(f.scene) + '</span></li>';
-      }).join("") + '</ul>';
-  }
 
   // 倾向不放在结构块里了——它挪到底部操作栏，紧挨着按钮。
   // 这样「结构」区永远是纯事实，结论单独待在一个位置。
