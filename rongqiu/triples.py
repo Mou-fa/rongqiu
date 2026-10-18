@@ -20,6 +20,12 @@ POLARITY_AFFIRM = "affirm"
 POLARITY_NEGATE = "negate"
 POLARITY_HYPOTHETICAL = "hypothetical"
 
+# 每多一级推理链，确定性乘以这个数。
+# 0.8^1 = 80%, 0.8^2 = 64%, 0.8^3 = 51%, 0.8^4 = 41%
+# 所以链长超过 3，可确定部分就掉到一半以下，只能出暂定判定。
+DEPTH_DISCOUNT = 0.8
+MAX_DEPTH = 3
+
 # 对原核的倾向
 SUPPORT = "support"
 OPPOSE = "oppose"
@@ -37,6 +43,7 @@ class Triple:
     source: str = ""
     grade: str = "L1"
     evidence: str = ""
+    depth: int = 1           # 推理链长度：直接匹配到的是 1，每多一次转述/溯源 +1
     frequency: float = 1.0   # 共识抽取里这条事实出现的频率，1.0 表示每次都抽到
     # 注意：人工勾选的场景走 SceneFact，不走 Triple
     shares: str = ""         # 与原核共享哪几格，逗号分隔：resource,agent,event
@@ -105,6 +112,7 @@ class SceneFact:
     source: str = "web"
     grade: str = "L1"
     order: int = 0
+    depth: int = 1                          # 推理链长度
     frequency: float = 1.0
 
     def complete(self) -> bool:
@@ -118,7 +126,8 @@ class SceneFact:
 
     def as_dict(self) -> dict:
         return {"scene": self.scene, "supports": self.supports,
-                "source": self.source, "grade": self.grade, "order": self.order}
+                "source": self.source, "grade": self.grade, "order": self.order,
+                "depth": self.depth, "weight": round(DEPTH_DISCOUNT ** (self.depth - 1), 4)}
 
 
 @dataclass

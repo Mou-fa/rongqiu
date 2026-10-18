@@ -63,8 +63,11 @@ function renderResult(j, isAuto) {
   const yes = j.lean === "yes";
   $("#lean").textContent = yes ? "更可能是：会" : "更可能是：不会";
   $("#lean").style.color = yes ? "var(--accent)" : "var(--warn)";
+  const ruleTxt = j.rule === "direct" ? "直接判定"
+    : j.rule === "tie_break_11" ? "平票，由 11 决定" : "暂定判定";
+  const depthTxt = "链长 " + (j.max_depth || 1) + (j.over_depth ? " ⚠" : "");
   $("#conf").textContent = "置信 " + (j.confidence * 100).toFixed(0) + "%  ·  " +
-    (j.rule === "direct" ? "直接判定" : j.rule === "tie_break_11" ? "平票，由 11 决定" : "暂定判定");
+    ruleTxt + "  ·  " + depthTxt;
 
   $("#metrics").innerHTML =
     metric("依据事实", j.n) +

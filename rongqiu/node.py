@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .triples import Triple, SUPPORT, OPPOSE
+from .triples import Triple, SUPPORT, OPPOSE, DEPTH_DISCOUNT, MAX_DEPTH
 
 MAX_CONFIDENCE = 0.8     # 811：任何判断不超过 0.8
 
@@ -34,6 +34,7 @@ class Judgment:
     unknown: str
     facts: list[Triple] = field(default_factory=list)
     reason: str = ""
+    max_depth: int = 1
 
     def as_dict(self) -> dict:
         return {
@@ -41,7 +42,8 @@ class Judgment:
             "confidence": round(self.confidence, 4),
             "n": self.n, "determinability": round(self.determinability, 4),
             "support_ratio": round(self.support_ratio, 4),
-            "rule": self.rule,
+            "rule": self.rule, "max_depth": self.max_depth,
+            "over_depth": self.max_depth > MAX_DEPTH,
             "assumption": self.assumption, "unknown": self.unknown,
             "facts": [f.as_dict() for f in self.facts],
         }
@@ -51,8 +53,10 @@ class Judgment:
         lines = [
             f"原核：{self.nucleus}",
             f"倾向：{side}（置信 {self.confidence:.2f}）",
-            f"N = {self.n}  可确定 = {self.n}/{self.n + 2} = {self.determinability:.0%}"
+            f"N = {self.n:.2f}  可确定 = {self.determinability:.0%}"
             f"  支持率 = {self.support_ratio:.0%}",
+            f"链长 = {self.max_depth}"
+            + ("  ⚠ 超过 3 级，确定性已降到一半以下" if self.max_depth > MAX_DEPTH else ""),
             f"规则：{self.rule}",
             "",
             "确定槽：",
@@ -90,10 +94,24 @@ class Node:
         n = len(directional)
         if n == 0:
             return None          # 节点不成立：没有任何可判定的方向信息
-        yes = len([f for f in directional if f.supports == SUPPORT])
-        ratio = yes / n
 
-        rule = "direct" if n / (n + 2) > 0.5 else "provisional"
+        # 链长加权：每多一级，这条事实的有效分量乘以 0.8。
+        # 不这么做的话，一条转述了三手的信息和一条亲眼所见的信息会被
+        # 当成同样重，而 0.8^n 的推导正是因为它们不等价。
+        weights = [DEPTH_DISCOUNT ** (max(getattr(f, "depth", 1), 1) - 1)
+                   for f in directional]
+        total_w = sum(weights)
+        yes_w = sum(w for w, f in zip(weights, directional) if f.supports == SUPPORT)
+        ratio = yes_w / total_w
+        n = len(directional)             # 事实条数（展示用）
+        max_depth = max(getattr(f, "depth", 1) for f in directional)
+
+        # 链长是整条推理的属性，不是单条事实的属性。
+        # 一条链深 4 级的判断，可确定部分上限就是 0.8^3 = 51%——
+        # 哪怕你有 8 条证据，它们本身也都是转述了三手的。
+        depth_factor = DEPTH_DISCOUNT ** (max_depth - 1)
+        base_det = n / (n + 2)
+        rule = "direct" if base_det * depth_factor > 0.5 else "provisional"
         if abs(ratio - 0.5) < 1e-9:
             # 平票：无弃权，交给 11 决定。
             # 假设槽和未知槽必须给出一个方向，否则二元判定没有依据。
@@ -104,7 +122,7 @@ class Node:
             lean = "yes" if ratio > 0.5 else "no"
             reason = ""
 
-        det = n / (n + 2)
+        det = base_det * depth_factor
         confidence = min(det * (0.5 + abs(ratio - 0.5)), MAX_CONFIDENCE)
         if rule == "tie_break_11":
             confidence = min(confidence, 0.5)   # 平票的判断不该比一半更自信
@@ -113,6 +131,7 @@ class Node:
             n=n, determinability=det, support_ratio=ratio, rule=rule,
             assumption=self.assumption, unknown=self.unknown,
             facts=directional, reason=reason,
+            max_depth=max_depth,
         )
 
 

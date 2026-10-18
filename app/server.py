@@ -56,7 +56,9 @@ def api_ask(body: AskBody):
     # 「这些场景适用于我」本来就是假设槽该装的东西，系统可以自己承担这个假设。
     auto = None
     if cands:
-        facts = [review.SceneFact(scene=c.text, source=c.source, order=i)
+        # 目前每条场景都是直接匹配到的，深度 1。
+        # 将来做溯源回流时，转述链每多一跳就 +1，确定性自动按 0.8^n 衰减。
+        facts = [review.SceneFact(scene=c.text, source=c.source, order=i, depth=1)
                  for i, c in enumerate(cands)]
         review.direction_of(facts, nu.binary)
         nd = node.build_from_review(
