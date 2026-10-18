@@ -39,18 +39,25 @@
       </section>
 
       <section id="step-result" class="panel hidden tabpane">
-        <div class="nucleus">
-          <div class="label">我理解你在问</div>
-          <div class="svo" id="svo"></div>
-        </div>
-        <div id="stated-wrap" class="stated hidden">
-          <div class="label">你自己说出的处境</div>
-          <div id="stated"></div>
-        </div>
-        <div class="label" style="margin-top:20px">结构</div>
+        <!-- 结论与操作放最上面 -->
+        <div class="label">结构</div>
         <div id="structure"></div>
         <div id="ask-question"></div>
         <div id="prompts"></div>
+
+        <!-- 明细作为参考，放在最下面 -->
+        <div class="detail-block">
+          <div class="nucleus">
+            <div class="label">我理解你在问</div>
+            <div class="svo" id="svo"></div>
+          </div>
+          <div id="stated-wrap" class="stated hidden">
+            <div class="label">你自己说出的处境</div>
+            <div id="stated"></div>
+          </div>
+          <div id="evidence-block"></div>
+        </div>
+
         <button id="btn-again" class="ghost">再问一个</button>
       </section>
 

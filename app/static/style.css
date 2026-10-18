@@ -418,3 +418,5 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
     overflow-wrap: anywhere; word-break: break-word;
   }
 }
+.detail-block { margin-top: 6px; }
+.detail-block .nucleus { margin-top: 22px; }
