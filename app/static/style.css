@@ -25,8 +25,9 @@ body {
 header { margin-bottom: 22px; }
 /* 五彩斑斓：柔和的多彩渐变，不是刺眼的霓虹。
    用 background-clip: text 把渐变裁进字里，color 设透明让字透出背景。 */
+/* 绒球：五彩斑斓 */
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .brand, .tagline {
+  .brand {
     background-image: linear-gradient(100deg,
       #ff5c8a 0%, #ff8a5c 18%, #ffc93c 36%, #4ecf7f 54%,
       #38b6d6 72%, #7b7bf0 88%, #d65cc0 100%);
@@ -42,7 +43,8 @@ header { margin-bottom: 22px; }
   width: fit-content; }        /* 渐变的宽度 = 文字宽度，整条彩虹才铺得满 */
 .tagline { font-size: 19px; font-weight: 800; letter-spacing: .8px;
   padding-left: 19px; margin-top: 2px;
-  width: fit-content; }
+  width: fit-content;
+  color: #e08a9e; }        /* 淡粉，不渐变 */
 .dot { width: 11px; height: 11px; border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, #b9d6c2, var(--accent)); }
 .sub { color: var(--ink-2); font-size: 13.5px; margin-top: 4px; }
