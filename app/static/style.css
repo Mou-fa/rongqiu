@@ -248,3 +248,11 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
 .ynbtn.no:hover:not(.on) { border-color: var(--warn); color: var(--warn); }
 .dropline { margin-top: 10px; font-size: 12px; color: var(--ink-3);
   background: #f7f5f0; border-radius: 8px; padding: 8px 10px; }
+/* ---- 环境已知面 ---- */
+.envblock { margin-top: 16px; }
+.envwrap { background: #f4f7f9; border: 1px solid #dfe7ee;
+  border-radius: 10px; padding: 11px 12px; }
+.envfacts { display: flex; flex-wrap: wrap; gap: 6px; }
+.envchip { font-size: 12.5px; color: var(--ink-2); background: #fff;
+  border: 1px solid #e3ebf1; border-radius: 999px; padding: 3px 10px; }
+.envbtn { margin-top: 9px; }

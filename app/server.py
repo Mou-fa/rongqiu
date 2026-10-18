@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from rongqiu import indexer, journal, node, nucleus, origin, questions, review, search  # noqa: E402
+from rongqiu import environment, indexer, journal, node, nucleus, origin, questions, review, search  # noqa: E402
 
 app = FastAPI(title="绒球")
 STATIC = ROOT / "app" / "static"
@@ -29,11 +29,19 @@ STATIC = ROOT / "app" / "static"
 
 class AskBody(BaseModel):
     question: str
+    lat: float | None = None      # 浏览器授权定位后才有
+    lon: float | None = None
 
 
 class SelectedItem(BaseModel):
     text: str
     source: str = "web"
+
+
+@app.get("/api/env")
+def api_env(lat: float | None = None, lon: float | None = None):
+    """环境已知面：时间永远有，天气和地区要坐标。"""
+    return environment.collect(lat, lon)
 
 
 class AnswerItem(BaseModel):
@@ -47,6 +55,7 @@ class JudgeBody(BaseModel):
     selected: list[SelectedItem] = []     # 用户认领的全网场景
     stated: list[SelectedItem] = []       # 用户自述（自动带入）
     answers: list[AnswerItem] = []        # 主动询问的 yes/no 回答
+    env: list[str] = []                   # 环境已知面（时间/地区/天气）
     assumption: str = ""
     unknown: str = ""
 
@@ -74,9 +83,23 @@ def api_ask(body: AskBody):
     # 全网找到的内容是【提示】，不是证据：它们是文章、观点、统计，
     # 属于别人的东西。按原则它们零权重，只作为镜子给用户看，
     # 用户认领了才升级成事实。
-    stated = [review.SceneFact(scene=b.as_text(), source="用户自述",
-                               order=i, depth=1, origin=-10 - i)
-              for i, b in enumerate(nu.background)]
+    # 环境已知面：时间永远有；给了坐标就有地区和天气。
+    # 它们是系统自己拿到的客观事实，和用户自述一样进入确定槽。
+    env_text = environment.collect(body.lat, body.lon)["facts"]
+    env_facts = [review.SceneFact(scene=t, source="环境已知面",
+                                  order=i, depth=1, origin=-20 - i)
+                 for i, t in enumerate(env_text)]
+    if env_facts:
+        # 环境面允许中性：跟原核无关的（比如「我在北京市」）直接丢掉，
+        # 不硬凑方向。用户认领的事实仍然强制二元。
+        review.direction_of(env_facts, nu.binary, runs=1, neutral_ok=True)
+        from rongqiu.triples import SUPPORT as _S, OPPOSE as _O
+        env_facts = [f for f in env_facts if f.supports in (_S, _O)]
+
+    stated = env_facts + [review.SceneFact(scene=b.as_text(), source="用户自述",
+                                           order=len(env_facts) + i,
+                                           depth=1, origin=-10 - i)
+                          for i, b in enumerate(nu.background)]
 
     if stated:
         review.direction_of(stated, nu.binary)
@@ -114,9 +137,15 @@ def api_judge(body: JudgeBody):
     # 会被模型重新判一遍，可能改成中性甚至反对。
     qa_facts = questions.answers_to_facts([a.model_dump() for a in body.answers])
 
-    others = [review.SceneFact(scene=s.text, source="用户自述", order=i,
-                               origin=-10 - i)
-              for i, s in enumerate(body.stated)]
+    # 环境已知面：时间、地区、天气。系统自己拿到的，不需要用户描述。
+    env_facts = [review.SceneFact(scene=t, source="环境已知面",
+                                  order=i, depth=1, origin=-20 - i)
+                 for i, t in enumerate(body.env) if str(t).strip()]
+
+    others = env_facts + [review.SceneFact(scene=s.text, source="用户自述",
+                                           order=len(env_facts) + i,
+                                           origin=-10 - i)
+                          for i, s in enumerate(body.stated)]
     others += [review.SceneFact(scene=s.text, source=s.source,
                                 order=len(others) + i)
                for i, s in enumerate(body.selected)]
@@ -130,7 +159,7 @@ def api_judge(body: JudgeBody):
     # 主动询问的答案方向已定；但如果其他事实全被判成中性，也要兜一次
     review.force_binary(facts, body.binary)
     nu = nucleus.Nucleus(agent="", event="", resource="", binary=body.binary)
-    web = [f for f in facts if f.source not in ("用户自述", "主动询问")]
+    web = [f for f in facts if f.source not in ("用户自述", "主动询问", "环境已知面")]
     if web:
         mapping = origin.cluster(web)
         for i, f in enumerate(web):

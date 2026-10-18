@@ -1,5 +1,12 @@
 const $ = (s) => document.querySelector(s);
-let STATE = { nucleus: null, candidates: [], picked: new Set(), auto: null, stated: [] };
+let STATE = { nucleus: null, candidates: [], picked: new Set(), auto: null,
+              stated: [], env: [], coords: null };
+
+// 上次授权过的坐标记在本地，不用每次都问
+try {
+  const saved = localStorage.getItem("rq_coords");
+  if (saved) STATE.coords = JSON.parse(saved);
+} catch (e) { /* 忽略 */ }
 
 function show(id) {
   ["step-ask", "step-result"].forEach(s => {
@@ -30,7 +37,9 @@ async function ask() {
   const btn = $("#btn-ask");
   btn.disabled = true; btn.textContent = "正在检索和判断…（约 20-40 秒）";
   try {
-    const d = await post("/api/ask", { question: q });
+    const body = { question: q };
+    if (STATE.coords) { body.lat = STATE.coords.lat; body.lon = STATE.coords.lon; }
+    const d = await post("/api/ask", body);
     STATE.nucleus = d.nucleus;
     STATE.candidates = d.candidates || [];
     STATE.auto = d.auto;
@@ -71,6 +80,61 @@ function renderAll(d) {
   renderStructure(STATE.auto);
   renderQuestions();
   renderPrompts();
+  loadEnv();
+}
+
+// ---------- 环境已知面：时间 / 地区 / 天气 ----------
+async function loadEnv() {
+  let url = "/api/env";
+  if (STATE.coords) {
+    url += "?lat=" + STATE.coords.lat + "&lon=" + STATE.coords.lon;
+  }
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    STATE.env = d.facts || [];
+    renderEnv(d);
+  } catch (e) {
+    $("#env-block").innerHTML = "";
+  }
+}
+
+function renderEnv(d) {
+  const box = $("#env-block");
+  const facts = (d && d.facts) || [];
+  const canLocate = !!(navigator.geolocation);
+  if (!facts.length) { box.innerHTML = ""; return; }
+  box.innerHTML =
+    '<div class="envwrap">' +
+      '<div class="label">环境（系统自己知道的）</div>' +
+      '<div class="envfacts">' +
+        facts.map(f => '<span class="envchip">' + esc(f) + '</span>').join("") +
+      '</div>' +
+      (!STATE.coords
+        ? '<button id="btn-locate" class="ghost small envbtn">' +
+          (canLocate ? "允许定位，补上地区天气" : "浏览器不支持定位") + '</button>'
+        : '') +
+    '</div>';
+  const b = $("#btn-locate");
+  if (b) b.onclick = requestLocation;
+}
+
+function requestLocation() {
+  if (!navigator.geolocation) return;
+  const btn = $("#btn-locate");
+  if (btn) { btn.disabled = true; btn.textContent = "正在定位…"; }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      STATE.coords = { lat: +pos.coords.latitude.toFixed(4),
+                       lon: +pos.coords.longitude.toFixed(4) };
+      try { localStorage.setItem("rq_coords", JSON.stringify(STATE.coords)); } catch (e) {}
+      loadEnv().then(() => judgeAgain());
+    },
+    () => {
+      if (btn) { btn.disabled = false; btn.textContent = "定位失败，点这里重试"; }
+    },
+    { timeout: 8000, maximumAge: 600000 }
+  );
 }
 
 function renderQuestions() {
@@ -231,6 +295,7 @@ async function judgeAgain() {
       question: STATE.query, binary: STATE.nucleus.binary,
       selected, stated,
       answers: STATE.answers || [],
+      env: STATE.env || [],
     });
     if (!d.ok) {
       // 不弹窗，也不清空已有结果——只在候选区下面给一句能照做的话。

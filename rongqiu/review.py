@@ -80,8 +80,23 @@ def select(candidates, selected: list[int] | None = None) -> tuple[list, list]:
     return chosen, rejected
 
 
+# 环境已知面专用：允许中性。
+# 「我在北京市」这种事实对「去不去聚餐」没有任何方向，硬逼一个出来就是编造。
+# 判成中性的会被丢掉——它不接触原核，就不该进确定槽。
+DIRECTION_SYSTEM_NEUTRAL_OK = """你是「绒球」的方向判定器。
+
+给定一个原核（「某件事会不会发生」）和若干环境事实（时间、地区、天气），
+判断每条事实让这件事**真的发生**的可能性升高（support）还是降低（oppose）。
+
+如果一条事实对这件事没有任何方向——比如「我在北京市」对「今晚去不去聚餐」
+没有影响——请判 neutral。**不要硬凑方向。**
+
+只输出 JSON：
+{"items": [{"index": 0, "supports": "support|oppose|neutral"}]}"""
+
+
 def direction_of(scenes: list[SceneFact], nucleus_binary: str, cfg=None,
-                 runs: int = 3) -> list[SceneFact]:
+                 runs: int = 3, neutral_ok: bool = False) -> list[SceneFact]:
     """系统判定每条场景的倾向。
 
     跑 runs 次取多数。单次调用不稳定——同一个场景换个时间判，方向可能反。
@@ -97,7 +112,7 @@ def direction_of(scenes: list[SceneFact], nucleus_binary: str, cfg=None,
         for _ in range(runs):
             single = [SceneFact(scene=s.scene, source=s.source, order=s.order)
                       for s in scenes]
-            _direction_once(single, nucleus_binary, cfg)
+            _direction_once(single, nucleus_binary, cfg, neutral_ok=neutral_ok)
             for s in single:
                 votes.setdefault(s.order, []).append(s.supports)
         for s in scenes:
@@ -105,7 +120,7 @@ def direction_of(scenes: list[SceneFact], nucleus_binary: str, cfg=None,
             if vs:
                 s.supports = max(set(vs), key=vs.count)
         return scenes
-    _direction_once(scenes, nucleus_binary, cfg)
+    _direction_once(scenes, nucleus_binary, cfg, neutral_ok=neutral_ok)
     return scenes
 
 
@@ -186,13 +201,15 @@ def _force_once(pending, scenes, nucleus_binary, cfg, strict=False):
     return scenes
 
 
-def _direction_once(scenes: list[SceneFact], nucleus_binary: str, cfg) -> list[SceneFact]:
+def _direction_once(scenes: list[SceneFact], nucleus_binary: str, cfg,
+                    neutral_ok: bool = False) -> list[SceneFact]:
     lines = "\n".join(f"{i}. {s.scene}" for i, s in enumerate(scenes))
     prompt = (f"【原核】{nucleus_binary}\n\n"
               f"【场景】\n{lines}\n\n"
               "逐条判断：如果这条是真的，原核「真的发生」的可能性升高还是降低？"
               "先写一句理由，再给 support 或 oppose。只输出 JSON。")
-    raw = complete(prompt, system=DIRECTION_SYSTEM, cfg=cfg)
+    raw = complete(prompt, system=(DIRECTION_SYSTEM_NEUTRAL_OK if neutral_ok
+                                   else DIRECTION_SYSTEM), cfg=cfg)
     if not raw:
         for s in scenes:
             s.supports = NEUTRAL
