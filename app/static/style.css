@@ -420,3 +420,13 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
 }
 .detail-block { margin-top: 6px; }
 .detail-block .nucleus { margin-top: 22px; }
+/* ---- 明细折叠 ---- */
+.detail-toggle {
+  display: block; width: 100%; margin-top: 22px;
+  padding: 9px 0; font-size: 12.5px; font-family: inherit;
+  color: var(--ink-3); background: transparent;
+  border: none; border-top: 1px dashed var(--line);
+  cursor: pointer; text-align: center; letter-spacing: .5px;
+}
+.detail-toggle:hover { color: var(--ink-2); }
+.detail-block { padding-top: 4px; }

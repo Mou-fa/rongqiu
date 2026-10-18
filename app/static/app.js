@@ -50,6 +50,11 @@ async function ask() {
     STATE.questions = d.questions || [];
     STATE.quota = d.surface_quota || (d.questions || []).length;
     STATE.answers = [];
+    // 新问题进来，明细默认收起
+    const db = $("#detail-block");
+    if (db) db.classList.add("hidden");
+    const dt = $("#btn-detail");
+    if (dt) dt.textContent = "▸ 查看明细";
     renderAll(d);
     show("step-result");
   } catch (e) {
@@ -383,8 +388,20 @@ async function judgeAgain() {
   }
 }
 
+// 明细默认收起：结论和操作在上半屏，明细要看再点开
+$("#btn-detail").onclick = () => {
+  const box = $("#detail-block");
+  const btn = $("#btn-detail");
+  const willOpen = box.classList.contains("hidden");
+  box.classList.toggle("hidden", !willOpen);
+  btn.textContent = willOpen ? "▾ 收起明细" : "▸ 查看明细";
+};
+
 $("#btn-again").onclick = () => {
   $("#question").value = "";
+  // 下次进来明细保持收起
+  $("#detail-block").classList.add("hidden");
+  $("#btn-detail").textContent = "▸ 查看明细";
   show("step-ask");
   $("#question").focus();
 };

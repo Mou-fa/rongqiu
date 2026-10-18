@@ -45,8 +45,9 @@
         <div id="ask-question"></div>
         <div id="prompts"></div>
 
-        <!-- 明细作为参考，放在最下面 -->
-        <div class="detail-block">
+        <!-- 明细默认收起，需要时展开 -->
+        <button id="btn-detail" class="detail-toggle">▸ 查看明细</button>
+        <div class="detail-block hidden" id="detail-block">
           <div class="nucleus">
             <div class="label">我理解你在问</div>
             <div class="svo" id="svo"></div>
