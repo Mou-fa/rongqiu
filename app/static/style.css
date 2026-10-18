@@ -28,7 +28,9 @@ header { margin-bottom: 22px; }
   color: #e08a9e;              /* 淡粉 */
   -webkit-text-stroke: .2px #d97d92;
 }
-.brand .dash { font-weight: 500; opacity: .75; margin: 0 2px; }
+.tagline { font-size: 19px; font-weight: 800; letter-spacing: .6px;
+  color: #e08a9e; padding-left: 19px; margin-top: 2px;
+  -webkit-text-stroke: .2px #d97d92; }
 .dot { width: 11px; height: 11px; border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, #b9d6c2, var(--accent)); }
 .sub { color: var(--ink-2); font-size: 13.5px; margin-top: 4px; }
