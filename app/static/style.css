@@ -225,3 +225,5 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
 .ynbtn.no.on { background: var(--warn); border-color: var(--warn); color: #fff; }
 .ynbtn.yes:hover:not(.on) { border-color: var(--accent); color: var(--accent); }
 .ynbtn.no:hover:not(.on) { border-color: var(--warn); color: var(--warn); }
+.dropline { margin-top: 10px; font-size: 12px; color: var(--ink-3);
+  background: #f7f5f0; border-radius: 8px; padding: 8px 10px; }

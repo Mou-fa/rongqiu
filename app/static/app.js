@@ -146,7 +146,7 @@ function renderStructure(j) {
     metric("可确定", Math.round(sp.determinable * 100) + "%") +
     metric("支持/反对/中性", c.support + "/" + c.oppose + "/" + c.neutral) +
     '</div>' +
-    '<div class="split-line">三个数加起来 = 总面数（中性含假设与未知）· ' +
+    '<div class="split-line">中性只存在于 11（假设+未知）· ' +
     '811 结构：可确定 ' + Math.round(sp.determinable * 100) +
     '% · 假设 ' + Math.round(sp.assumption * 100) +
     '% · 未知 ' + Math.round(sp.unknown * 100) +
@@ -158,6 +158,10 @@ function renderStructure(j) {
       return '<li><span class="mark ' + cls + '">' + sym + '</span><span>' +
         esc(f.scene) + '</span></li>';
     }).join("") + '</ul>' +
+    (j.dropped > 0
+      ? '<div class="dropline">有 ' + j.dropped + ' 条场景判不出方向，未计入' +
+        '（事实层只允许二元对立）</div>'
+      : '') +
     (j.assumption ? '<div class="slots"><div class="slot"><b>假设</b>　' + esc(j.assumption) + '</div></div>' : '') +
     (j.unknown ? '<div class="slots"><div class="slot"><b>未知</b>　' + esc(j.unknown) + '</div></div>' : '') +
     '<div class="tiny-ref"><span>系统参考倾向</span>' +

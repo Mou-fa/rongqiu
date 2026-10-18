@@ -43,6 +43,7 @@ class Judgment:
     reason: str = ""
     max_depth: int = 1
     n_raw: int = 0          # 归并前的材料条数，用于展示「有多少条同源」
+    dropped: int = 0        # 判不出方向、被丢掉的事实条数
 
     def as_dict(self) -> dict:
         return {
@@ -50,7 +51,7 @@ class Judgment:
             "confidence": round(self.confidence, 4),
             "n": self.n, "n_raw": self.n_raw,
             "total_surfaces": self.total_surfaces,
-            "counts": self.counts(),
+            "counts": self.counts(), "dropped": self.dropped,
             "determinability": round(self.determinability, 4),
             # 811 的三段结构：可确定 / 假设 / 未知。后两段永远是固定的 10%。
             "split": self.split(),
@@ -72,18 +73,13 @@ class Judgment:
     def counts(self) -> dict:
         """支持 / 反对 / 中性，三个数加起来等于总面数。
 
-        中性不只是「事实里判成中性的」，还包括假设和未知这两个槽——
-        它们同样是第一接触面，只是永远没有方向。所以：
-            support + oppose + neutral = n + 2
-
-        第一版只数了事实里的中性，三个数加起来是 n，和界面上显示的总面数
-        对不上，用户一眼就看出来了。
+        中性只能存在于 11：假设 1 + 未知 1，永远是 2。
+        事实层全是二元对立，没有中性——判不出方向的已经被丢掉了。
+        所以：support + oppose = n，neutral = 2，合计 = n + 2。
         """
         s = sum(1 for f in self.facts if f.supports == SUPPORT)
         o = sum(1 for f in self.facts if f.supports == OPPOSE)
-        n_facts = len(self.facts)
-        # 假设 1 + 未知 1 = 2 个没有方向的固定面
-        return {"support": s, "oppose": o, "neutral": (n_facts - s - o) + 2}
+        return {"support": s, "oppose": o, "neutral": 2}
 
     def split(self) -> dict:
         """811 的三段结构。
@@ -150,12 +146,17 @@ class Node:
         return self.n / (self.n + 2)
 
     def judge(self, tie_break_lean: str = "", tie_break_reason: str = "") -> Judgment | None:
-        facts = list(self.facts)
+        # 中性只能存在于 11（假设槽 + 未知槽）。
+        # 事实层只允许支持或反对——判不出方向的东西不是事实，不进 N。
+        # 它要么被 force_binary 逼出方向，要么在这里被丢掉。
+        all_facts = list(self.facts)
+        facts = [f for f in all_facts if f.supports in (SUPPORT, OPPOSE)]
+        dropped = len(all_facts) - len(facts)
         n = len(facts)
         if n == 0:
             return None
 
-        directional = [f for f in facts if f.supports in (SUPPORT, OPPOSE)]
+        directional = facts
         weights_of = lambda f: DEPTH_DISCOUNT ** (max(getattr(f, "depth", 1), 1) - 1)
 
         # 方向只看有方向的那部分；但 N 算全部确认过的事实面。
@@ -168,7 +169,7 @@ class Node:
         else:
             ratio = 0.5
 
-        max_depth = max(getattr(f, "depth", 1) for f in facts)
+        max_depth = max(getattr(f, "depth", 1) for f in facts) if facts else 1
 
         # 链长是整条推理的属性，不是单条事实的属性。
         # 一条链深 4 级的判断，可确定部分上限就是 0.8^3 = 51%——
@@ -196,7 +197,7 @@ class Node:
             n=n, determinability=det, support_ratio=ratio, rule=rule,
             assumption=self.assumption, unknown=self.unknown,
             facts=facts, reason=reason,
-            max_depth=max_depth, n_raw=n,
+            max_depth=max_depth, n_raw=n, dropped=dropped,
         )
 
 

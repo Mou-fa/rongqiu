@@ -45,8 +45,8 @@ def test_total_surfaces_matches_the_eight_one_one_shape():
 def test_counts_split_support_oppose_neutral():
     """三个数加起来必须等于总面数。
 
-    中性不只是「事实里判成中性的」，还包括假设和未知这两个固定面——
-    它们同样是第一接触面，只是永远没有方向。
+    中性只能存在于 11：假设 1 + 未知 1，永远是 2。
+    事实层全是二元对立，判不出方向的不是事实，会被丢掉。
     """
     facts = [_f("a", SUPPORT, order=0), _f("b", SUPPORT, order=1),
              _f("c", OPPOSE, order=2), _f("d", "neutral", order=3)]
@@ -54,9 +54,26 @@ def test_counts_split_support_oppose_neutral():
     c = j.counts()
     assert c["support"] == 2
     assert c["oppose"] == 1
-    assert c["neutral"] == 1 + 2          # 1 条中性事实 + 假设 + 未知
-    assert sum(c.values()) == j.total_surfaces   # 加起来就是总面数
-    assert j.n == 4                       # 中性也算一个确认过的面
+    assert c["neutral"] == 2              # 只有假设和未知
+    assert sum(c.values()) == j.total_surfaces
+    assert j.n == 3                       # 中性事实被丢掉了
+    assert j.dropped == 1
+
+
+def test_neutral_facts_are_dropped_from_n():
+    """事实层不允许中性。判不出方向的，不进 N。"""
+    facts = [_f("支持", SUPPORT, order=0), _f("中性", "neutral", order=1)]
+    j = Node(nucleus="x", facts=facts).judge()
+    assert j.n == 1
+    assert j.total_surfaces == 3
+    assert j.dropped == 1
+    assert all(f.supports in ("support", "oppose") for f in j.facts)
+
+
+def test_all_neutral_means_no_node():
+    """全部都是中性 → 一条事实都没有 → 节点不成立。"""
+    facts = [_f("中性A", "neutral", order=0), _f("中性B", "neutral", order=1)]
+    assert Node(nucleus="x", facts=facts).judge() is None
 
 
 def test_origin_field_no_longer_affects_the_judgment():
