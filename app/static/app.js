@@ -77,11 +77,17 @@ function renderStructure(j) {
     return;
   }
   const sp = j.split || { determinable: j.determinability, assumption: 0.1, unknown: 0.1 };
+  const c = j.counts || {
+    support: j.facts.filter(f => f.supports === "support").length,
+    oppose: j.facts.filter(f => f.supports === "oppose").length,
+    neutral: j.facts.filter(f => f.supports !== "support" && f.supports !== "oppose").length,
+  };
+  const total = j.total_surfaces || (j.n + 2);
   box.innerHTML =
     '<div class="metrics">' +
-    metric("第一接触面", j.n) +
+    metric("第一接触面", total) +
     metric("可确定", Math.round(sp.determinable * 100) + "%") +
-    metric("支持 / 反对", supportSplit(j)) +
+    metric("支持/反对/中性", c.support + "/" + c.oppose + "/" + c.neutral) +
     '</div>' +
     '<div class="split-line">811 结构：可确定 ' + Math.round(sp.determinable * 100) +
     '% · 假设 ' + Math.round(sp.assumption * 100) +

@@ -49,6 +49,8 @@ class Judgment:
             "nucleus": self.nucleus, "lean": self.lean,
             "confidence": round(self.confidence, 4),
             "n": self.n, "n_raw": self.n_raw,
+            "total_surfaces": self.total_surfaces,
+            "counts": self.counts(),
             "determinability": round(self.determinability, 4),
             # 811 的三段结构：可确定 / 假设 / 未知。后两段永远是固定的 10%。
             "split": self.split(),
@@ -57,6 +59,22 @@ class Judgment:
             "over_depth": self.max_depth > MAX_DEPTH,
             "assumption": self.assumption, "unknown": self.unknown,
             "facts": [f.as_dict() for f in self.facts],
+        }
+
+    @property
+    def total_surfaces(self) -> int:
+        """总面数 = 事实面 + 假设 1 + 未知 1。
+
+        用户说的「第一接触面」是这个数：8 条事实对应 10 个面。
+        """
+        return self.n + 2
+
+    def counts(self) -> dict:
+        return {
+            "support": sum(1 for f in self.facts if f.supports == SUPPORT),
+            "oppose": sum(1 for f in self.facts if f.supports == OPPOSE),
+            "neutral": sum(1 for f in self.facts
+                           if f.supports not in (SUPPORT, OPPOSE)),
         }
 
     def split(self) -> dict:
@@ -77,8 +95,8 @@ class Judgment:
         lines = [
             f"原核：{self.nucleus}",
             f"倾向：{side}（置信 {self.confidence:.2f}）",
-            (f"第一接触面 N = {self.n}"
-             + (f"（归并前 {self.n_raw} 条材料）" if self.n_raw > self.n else ""))
+            (f"第一接触面 = {self.total_surfaces} 个面"
+             f"（{self.n} 条事实 + 1 假设 + 1 未知）")
             + (lambda s: f"  可确定 {s['determinable']:.0%} : "
                          f"假设 {s['assumption']:.0%} : 未知 {s['unknown']:.0%}")(self.split())
             + f"  支持率 {self.support_ratio:.0%}",
@@ -110,46 +128,39 @@ class Node:
 
     @property
     def n(self) -> int:
-        return len([f for f in self.facts if f.supports in (SUPPORT, OPPOSE)])
+        """事实面数量 = 用户确认过的每一条，逐条算。
+
+        不再做同源归并：那是用来防「别人的观点被当成多份证据」的。
+        而用户勾选的每一条，是他对自己情况的每一次独立确认，不该被合并。
+        第一版把它们归并了，界面上就出现「第一接触面 3，支持/反对 4/1」
+        这种自相矛盾的数字。
+        """
+        return len(self.facts)
 
     @property
     def determinability(self) -> float:
         return self.n / (self.n + 2)
 
     def judge(self, tie_break_lean: str = "", tie_break_reason: str = "") -> Judgment | None:
-        directional = [f for f in self.facts if f.supports in (SUPPORT, OPPOSE)]
-        n = len(directional)
+        facts = list(self.facts)
+        n = len(facts)
         if n == 0:
-            return None          # 节点不成立：没有任何可判定的方向信息
+            return None
 
-        # 链长加权：每多一级，这条事实的有效分量乘以 0.8。
-        # 不这么做的话，一条转述了三手的信息和一条亲眼所见的信息会被
-        # 当成同样重，而 0.8^n 的推导正是因为它们不等价。
-        # 按来源归并：同一个源头的多条材料，只能算一份证据。
-        # 不做这一步的话，三个朋友在同一个群里说同一件事，会被算成三份
-        # 独立证据，直接把 N 和置信度抬虚。标签不同不等于源头不同。
-        groups: dict[int, list] = {}
-        for f in directional:
-            key = getattr(f, "origin", -1)
-            key = key if key >= 0 else -1000 - directional.index(f)
-            groups.setdefault(key, []).append(f)
-
+        directional = [f for f in facts if f.supports in (SUPPORT, OPPOSE)]
         weights_of = lambda f: DEPTH_DISCOUNT ** (max(getattr(f, "depth", 1), 1) - 1)
 
-        # 每个源头投一票，但票的份量按链长加权：
-        # 亲眼所见的源头（深 1）比转述三手的源头（深 4）更有份量。
-        yes_share, all_share = 0.0, 0.0
-        for group in groups.values():
-            g_weight = max(weights_of(f) for f in group)
-            w_yes = sum(weights_of(f) for f in group if f.supports == SUPPORT)
-            w_no = sum(weights_of(f) for f in group if f.supports == OPPOSE)
-            all_share += g_weight
-            if w_yes >= w_no:
-                yes_share += g_weight
+        # 方向只看有方向的那部分；但 N 算全部确认过的事实面。
+        # 一条中性的事实不改变方向，但它确实是用户确认过的一个接触面，
+        # 所以它算进 N，让「可确定比例」反映观察的丰富程度。
+        if directional:
+            total_w = sum(weights_of(f) for f in directional)
+            yes_w = sum(weights_of(f) for f in directional if f.supports == SUPPORT)
+            ratio = yes_w / total_w if total_w else 0.5
+        else:
+            ratio = 0.5
 
-        n = len(groups)                   # 独立源头数 = 有效事实数
-        ratio = yes_share / all_share if all_share else 0.5
-        max_depth = max(getattr(f, "depth", 1) for f in directional)
+        max_depth = max(getattr(f, "depth", 1) for f in facts)
 
         # 链长是整条推理的属性，不是单条事实的属性。
         # 一条链深 4 级的判断，可确定部分上限就是 0.8^3 = 51%——
@@ -176,8 +187,8 @@ class Node:
             nucleus=self.nucleus, lean=lean, confidence=confidence,
             n=n, determinability=det, support_ratio=ratio, rule=rule,
             assumption=self.assumption, unknown=self.unknown,
-            facts=directional, reason=reason,
-            max_depth=max_depth, n_raw=len(directional),
+            facts=facts, reason=reason,
+            max_depth=max_depth, n_raw=n,
         )
 
 
