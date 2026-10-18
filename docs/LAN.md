@@ -8,41 +8,68 @@
 .\scripts\serve.ps1
 ```
 
-脚本会：
+脚本会放行防火墙、用 `--host 0.0.0.0` 启动、打印手机能用的地址。
 
-1. 检查并放行防火墙端口 8780（需要管理员身份）
-2. 用 `--host 0.0.0.0` 启动，监听所有网卡
-3. 打印本机和局域网访问地址
-
-然后手机连**同一个 WiFi**，打开脚本打印的那个局域网地址，例如：
+然后手机连**同一个 WiFi**，打开那个地址，**注意要带端口号**：
 
 ```
-http://192.168.0.101:8780
+192.168.0.101:8780
 ```
 
-## 打不开的排查顺序
+## 踩过的坑（按出现顺序）
 
-| 现象 | 原因 | 处理 |
-|---|---|---|
-| 手机浏览器转圈超时 | 不在同一个 WiFi | 连同一个路由器 |
-| 同上 | 防火墙没放行 | 用管理员 PowerShell 重跑 serve.ps1 |
-| 同上 | 路由器开了 AP 隔离 | 关掉「无线隔离 / AP Isolation」 |
-| 同上 | 电脑 IP 变了 | 重跑 serve.ps1 看新地址 |
-| 能打开但很慢 | 判断要调模型和搜索，一次 20-40 秒 | 正常 |
+### 1. 地址漏了端口
 
-## 查当前局域网 IP
+```
+192.168.0.101        ← 浏览器走 80 端口，那里没人
+192.168.0.101:8780   ← 正确
+```
+
+### 2. 网络被判定为「公用」，防火墙规则不生效
+
+这是最隐蔽的一个。Windows 经常把家里的 WiFi 判成 **Public**，
+而防火墙规则如果只写 `-Profile Private,Domain`，对 Public 网络**完全不生效**——
+服务在跑、本机自测 200、手机却连不上。
+
+检查：
 
 ```powershell
-Get-NetIPAddress -AddressFamily IPv4 |
-  Where-Object { $_.IPAddress -notlike '127.*' } |
-  Select-Object IPAddress, InterfaceAlias
+Get-NetConnectionProfile | Select-Object InterfaceAlias, NetworkCategory
 ```
+
+如果是 Public：
+
+```powershell
+Set-NetConnectionProfile -InterfaceAlias "WLAN" -NetworkCategory Private
+```
+
+同时把防火墙规则改成覆盖所有类型（脚本已处理）：
+
+```powershell
+Get-NetFirewallRule -DisplayName "*绒球*" | Set-NetFirewallRule -Profile Any
+```
+
+### 3. 路由器开了 AP 隔离
+
+如果上面都对还是连不上，去路由器设置里找
+「无线隔离 / AP Isolation / 客户端隔离」，关掉它。
+
+## 排查顺序
+
+| 现象 | 检查 |
+|---|---|
+| 手机转圈超时 | 地址带端口了吗 |
+| 同上 | `Get-NetTCPConnection -LocalPort 8780 -State Listen` 有输出吗 |
+| 同上 | 网络是 Public 吗 |
+| 同上 | 路由器 AP 隔离 |
+| 能开但慢 | 判断要调模型和搜索，20-40 秒，正常 |
 
 ## 安全提醒
 
-监听 `0.0.0.0` 意味着**同一局域网内的任何设备都能访问**，
-包括判断记录（`/api/pending`、`/api/stats`）。
-在家里的私有 WiFi 下没问题；在咖啡厅、宿舍、公司网络下建议别开。
+监听 `0.0.0.0` 意味着**同一局域网内的任何设备都能读到判断记录**
+（`/api/pending`、`/api/stats`）。
+
+家里的私有 WiFi 下没问题；咖啡厅、宿舍、公司网络下建议别开。
 
 用完改回只监听本机：
 
