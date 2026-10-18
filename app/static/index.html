@@ -13,12 +13,18 @@
     <div class="sub">用真实发生过的事，判断一件你还没决定的事</div>
   </header>
 
-  <section id="step-ask" class="panel">
+  <nav class="tabs">
+    <button data-tab="ask" class="on">判断</button>
+    <button data-tab="pending">回收<span id="due-badge" class="badge hidden"></span></button>
+    <button data-tab="stats">校准</button>
+  </nav>
+
+  <section id="step-ask" class="panel tabpane">
     <label class="label">你现在要决定什么？</label>
     <textarea id="question" rows="3" placeholder="把你的处境一起说出来，比如：今天身体不舒服，能不能去聚餐？"></textarea>
     <div class="examples">
       <span>试试：</span>
-      <button class="chip" data-q="今天身体不舒服，绒球你觉得能不能去聚餐？">身体不舒服，去不去聚餐</button>
+      <button class="chip" data-q="今晚身体不舒服，绒球你觉得能不能去聚餐？">今晚身体不舒服，去不去聚餐</button>
       <button class="chip" data-q="最近很累，我要不要换工作？">很累，要不要换工作</button>
       <button class="chip" data-q="钱包有点紧，我要不要买这个手机？">钱紧，要不要买手机</button>
     </div>
@@ -26,26 +32,34 @@
     <p class="hint">你把自己的处境说得越清楚，系统的第一接触面就越多。</p>
   </section>
 
-  <section id="step-result" class="panel hidden">
+  <section id="step-result" class="panel hidden tabpane">
     <div class="nucleus">
       <div class="label">我理解你在问</div>
       <div class="svo" id="svo"></div>
     </div>
-
     <div id="stated-wrap" class="stated hidden">
       <div class="label">你自己说出的处境</div>
       <div id="stated"></div>
     </div>
-
     <div class="label" style="margin-top:20px">结构</div>
     <div id="structure"></div>
-
     <div id="prompts"></div>
-
     <button id="btn-again" class="ghost">再问一个</button>
   </section>
 
-  <footer>判断是趋近值，不是断言 · 已入档，7 天后可回收结果</footer>
+  <section id="step-pending" class="panel hidden tabpane">
+    <div class="label">等你回收的判断</div>
+    <p class="hint">到了回收期，回来告诉我「这件事最后发生了吗」。<br>
+      你答的每一条，都会进入你的偏差画像。</p>
+    <div id="pending-list"></div>
+  </section>
+
+  <section id="step-stats" class="panel hidden tabpane">
+    <div class="label">你的偏差画像</div>
+    <div id="stats-body"><p class="hint">还没有回收的结果。先去「回收」页回答几条。</p></div>
+  </section>
+
+  <footer>判断是趋近值，不是断言</footer>
 </div>
 <script src="/static/app.js"></script>
 </body>

@@ -206,5 +206,150 @@ function esc(s) {
 }
 
 show("step-ask");
+const TAB0 = (location.hash || "").replace("#", "");
+if (TAB0 === "pending" || TAB0 === "stats") switchTab(TAB0);
+
 const Q0 = new URLSearchParams(location.search).get("q");
 if (Q0) { $("#question").value = Q0; ask(); }
+// ---------- 标签页 ----------
+function switchTab(name) {
+  document.querySelectorAll(".tabs button").forEach(b => {
+    b.classList.toggle("on", b.dataset.tab === name);
+  });
+  ["ask", "pending", "stats"].forEach(t => {
+    const sec = t === "ask"
+      ? document.getElementById("step-ask")
+      : document.getElementById("step-" + t);
+    if (sec) sec.classList.toggle("hidden", t !== name);
+  });
+  if (name === "pending") loadPending();
+  if (name === "stats") loadStats();
+}
+
+document.querySelectorAll(".tabs button").forEach(b => {
+  b.onclick = () => switchTab(b.dataset.tab);
+});
+
+// ---------- 回收 ----------
+async function loadPending() {
+  const box = document.getElementById("pending-list");
+  box.innerHTML = '<p class="hint">加载中…</p>';
+  try {
+    const r = await fetch("/api/pending");
+    const d = await r.json();
+    const badge = document.getElementById("due-badge");
+    if (d.due > 0) { badge.textContent = d.due; badge.classList.remove("hidden"); }
+    else badge.classList.add("hidden");
+
+    if (!d.items.length) {
+      box.innerHTML = '<p class="hint">没有待回收的判断。先去做几个判断吧。</p>';
+      return;
+    }
+    box.innerHTML = "";
+    d.items.forEach(e => {
+      const el = document.createElement("div");
+      el.className = "pend" + (e.due ? " due" : "");
+      const when = e.due ? "现在可以回收" : e.days_left + " 天后可回收";
+      el.innerHTML =
+        '<div class="q">' + esc(e.question) + '</div>' +
+        '<div class="meta">系统当初判断 <b>' + (e.lean === "yes" ? "会" : "不会") +
+        '</b> · 置信 ' + Math.round(e.confidence * 100) + '% · ' +
+        (e.n + 2) + ' 个面 · ' + when + '</div>' +
+        '<div class="acts">' +
+        (e.due
+          ? '<button class="mini yes">这件事发生了</button>' +
+            '<button class="mini no">没有发生</button>'
+          : '<span class="wait">等时间到</span>') +
+        '</div>';
+      if (e.due) {
+        el.querySelector(".yes").onclick = () => doResolve(e.id, "yes", el);
+        el.querySelector(".no").onclick = () => doResolve(e.id, "no", el);
+      }
+      box.appendChild(el);
+    });
+  } catch (err) {
+    box.innerHTML = '<p class="hint">加载失败：' + esc(err.message) + '</p>';
+  }
+}
+
+async function doResolve(id, outcome, el) {
+  try {
+    const r = await fetch("/api/resolve", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, outcome, note: "" }),
+    });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message); return; }
+    el.classList.add("done");
+    el.querySelector(".acts").innerHTML =
+      '<span class="ok">已记录：' + (outcome === "yes" ? "发生了" : "没有发生") + '</span>';
+    loadStats();
+  } catch (err) { alert("出错了：" + err.message); }
+}
+
+// ---------- 校准 ----------
+async function loadStats() {
+  const box = document.getElementById("stats-body");
+  try {
+    const r = await fetch("/api/stats");
+    const s = await r.json();
+    if (!s.resolved) {
+      box.innerHTML = '<p class="hint">还没有回收的结果。先去「回收」页回答几条——' +
+        '校准需要时间，这是正常的。</p>' +
+        '<div class="metrics">' +
+        metric("判断总数", s.total) + metric("待回收", s.pending) +
+        metric("已回收", s.resolved) + '</div>';
+      return;
+    }
+    const gap = s.calibration_gap;
+    const gapTxt = gap > 0.05 ? "你比自己以为的<b>更准</b>"
+      : gap < -0.05 ? "你<b>过度自信</b>了" : "你的置信度校准得不错";
+    let h = '<div class="metrics">' +
+      metric("已回收", s.resolved) +
+      metric("命中率", Math.round(s.hit_rate * 100) + "%") +
+      metric("平均置信", Math.round(s.mean_confidence * 100) + "%") +
+      '</div>';
+    h += '<div class="gapbox">校准偏差 <b>' + (gap >= 0 ? "+" : "") +
+      Math.round(gap * 100) + '%</b>　' + gapTxt + '</div>';
+    h += '<div class="split-line">Brier ' + s.brier.toFixed(3) +
+      ' · 基准 ' + s.baseline_brier.toFixed(3) +
+      ' · 技巧分 ' + (s.skill === null ? "—" : s.skill.toFixed(3)) + '</div>';
+
+    if (s.reliability && s.reliability.length) {
+      h += '<div class="label" style="margin-top:20px">可靠性曲线</div>';
+      h += '<div class="rel">';
+      s.reliability.forEach(b => {
+        const pm = Math.round(b.p_mean * 100), ob = Math.round(b.obs * 100);
+        h += '<div class="relrow"><span class="relk">预测 ' + pm + '%</span>' +
+          '<span class="bars"><i style="width:' + pm + '%"></i>' +
+          '<em style="width:' + ob + '%"></em></span>' +
+          '<span class="relv">实际 ' + ob + '%</span></div>';
+      });
+      h += '</div><p class="hint">灰条比彩条低 = 过度自信；高 = 保守。</p>';
+    }
+
+    if (s.by_n && s.by_n.length) {
+      h += '<div class="label" style="margin-top:20px">按面数分组（811 检验）</div>';
+      h += '<div class="tbl"><div class="tr th"><span>面数</span>' +
+        '<span>样本</span><span>可确定</span><span>命中率</span><span>偏差</span></div>';
+      s.by_n.forEach(b => {
+        const d = b.hit_rate - b.determinability;
+        h += '<div class="tr"><span>' + (b.n + 2) + '</span><span>' + b.count +
+          '</span><span>' + Math.round(b.determinability * 100) + '%</span><span>' +
+          Math.round(b.hit_rate * 100) + '%</span><span class="' +
+          (d >= 0 ? "pos" : "neg") + '">' + (d >= 0 ? "+" : "") +
+          Math.round(d * 100) + '%</span></div>';
+      });
+      h += '</div><p class="hint">811 的检验：N=8 那行的命中率，应该接近 80%。</p>';
+    }
+    box.innerHTML = h;
+  } catch (err) {
+    box.innerHTML = '<p class="hint">加载失败：' + esc(err.message) + '</p>';
+  }
+}
+
+// 启动时看一下有没有到期的
+fetch("/api/pending").then(r => r.json()).then(d => {
+  const badge = document.getElementById("due-badge");
+  if (d.due > 0) { badge.textContent = d.due; badge.classList.remove("hidden"); }
+}).catch(() => {});

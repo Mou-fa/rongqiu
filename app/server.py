@@ -132,13 +132,62 @@ def api_judge(body: JudgeBody):
             "resolve_by": entry["resolve_by"]}
 
 
+@app.get("/api/pending")
+def api_pending():
+    """待回收的判断：到期的排前面，未到期的也列出来（标注还有几天）。"""
+    from datetime import datetime
+    now = datetime.now().astimezone()
+
+    def days_left(e: dict) -> int:
+        try:
+            rb = datetime.fromisoformat(e.get("resolve_by", ""))
+            return max(0, (rb - now).days)
+        except ValueError:
+            return 0
+
+    def brief(e: dict) -> dict:
+        return {"id": e["id"], "question": e["nucleus"], "ts": e["ts"],
+                "lean": e["lean"], "confidence": e["confidence"],
+                "p_yes": e.get("p_yes"), "n": e["n"],
+                "resolve_by": e.get("resolve_by"),
+                "days_left": days_left(e),
+                "due": days_left(e) == 0}
+
+    items = [brief(e) for e in journal.load() if e.get("outcome") is None]
+    items.sort(key=lambda x: (not x["due"], x["days_left"]))
+    return {"items": items[:60], "due": len([x for x in items if x["due"]]),
+            "total": len(items)}
+
+
+class ResolveBody(BaseModel):
+    id: str
+    outcome: str          # yes = 原核成立（事情发生了）；no = 没发生
+    note: str = ""
+
+
+@app.post("/api/resolve")
+def api_resolve(body: ResolveBody):
+    try:
+        e = journal.resolve(body.id, body.outcome, body.note)
+    except ValueError as exc:
+        return {"ok": False, "message": str(exc)}
+    if e is None:
+        return {"ok": False, "message": "找不到这条判断"}
+    return {"ok": True, "entry": {"id": e["id"], "outcome": e["outcome"]},
+            "stats": journal.stats()}
+
+
 @app.get("/api/stats")
 def api_stats():
-    from dataclasses import asdict
     s = journal.stats()
     return {"total": s["total"], "resolved": s["resolved"],
             "pending": s["pending"], "skill": s["skill"],
-            "hit_rate": s["hit_rate"], "brier": s["brier"]}
+            "hit_rate": s["hit_rate"], "brier": s["brier"],
+            "baseline_brier": s["baseline_brier"],
+            "mean_confidence": s["mean_confidence"],
+            "calibration_gap": s["calibration_gap"],
+            "reliability": s["reliability"], "by_n": s["by_n"],
+            "by_rule": s["by_rule"], "base_rate": s.get("base_rate")}
 
 
 @app.get("/")

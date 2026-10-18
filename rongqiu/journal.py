@@ -23,6 +23,24 @@ DATA = ROOT / "data"
 JOURNAL = DATA / "journal.jsonl"
 DEFAULT_RESOLVE_DAYS = 7
 
+# 回收期要跟着问题的时间尺度走。
+# 「今晚去不去聚餐」锁死 7 天再问，用户早忘了当时的犹豫；而且数据要等一周
+# 才开始积累。按问题里的时间词定回收期，今晚的决定明天就能回收。
+_SHORT = ("今晚", "今天", "明天", "等一下", "马上", "现在")
+_WEEK = ("这周", "本周", "周末", "这几天")
+_LONG = ("这个月", "下个月", "今年", "年底", "明年")
+
+
+def resolve_days_for(question: str) -> int:
+    q = question or ""
+    if any(k in q for k in _SHORT):
+        return 1
+    if any(k in q for k in _WEEK):
+        return 7
+    if any(k in q for k in _LONG):
+        return 30
+    return DEFAULT_RESOLVE_DAYS
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
@@ -42,8 +60,10 @@ def p_yes(entry: dict) -> float:
     return c if entry["lean"] == "yes" else 1.0 - c
 
 
-def record(judgment, question: str, resolve_days: int = DEFAULT_RESOLVE_DAYS,
+def record(judgment, question: str, resolve_days: int | None = None,
            extra: dict | None = None) -> dict:
+    if resolve_days is None:
+        resolve_days = resolve_days_for(question)
     DATA.mkdir(parents=True, exist_ok=True)
     entry = {
         "id": _new_id(),
@@ -94,6 +114,26 @@ def pending(as_of: str | None = None) -> list[dict]:
     return [e for e in load() if e.get("outcome") is None and e.get("resolve_by", "") <= now]
 
 
+def unresolved() -> list[dict]:
+    """全部还没回收的，含未到期的。"""
+    return [e for e in load() if e.get("outcome") is None]
+
+
+def due_soon(days: int = 7, as_of: str | None = None) -> list[dict]:
+    """还没到期但 N 天内会到期的。"""
+    now = datetime.fromisoformat(as_of or _now())
+    horizon = now + timedelta(days=days)
+    out = []
+    for e in unresolved():
+        try:
+            rb = datetime.fromisoformat(e.get("resolve_by", ""))
+        except ValueError:
+            continue
+        if now < rb <= horizon:
+            out.append(e)
+    return out
+
+
 def resolve(entry_id: str, outcome: str, note: str = "") -> dict | None:
     """回收一条判断的真实结果。outcome: 'yes' | 'no'"""
     outcome = outcome.strip().lower()
@@ -133,6 +173,7 @@ def stats(entries: list[dict] | None = None, bins: int = 5) -> dict:
         "pending": len([e for e in entries if e.get("outcome") is None]),
         "brier": None, "baseline_brier": None, "skill": None,
         "hit_rate": None, "mean_confidence": None,
+        "calibration_gap": None,
         "reliability": [], "by_n": [], "by_rule": [],
     }
     if not resolved:
@@ -144,7 +185,12 @@ def stats(entries: list[dict] | None = None, bins: int = 5) -> dict:
     base_b = sum((base_rate - (1.0 if e["outcome"] == "yes" else 0.0)) ** 2
                  for e in resolved) / len(resolved)
 
+    # 校准偏差：命中率 - 平均置信度。
+    # 正数 = 你比你以为的更准（保守），负数 = 你过度自信。
+    # 这是「你自己的偏差画像」里最重要的一行。
     out.update({
+        "calibration_gap": round(hit - (sum(e["confidence"] for e in resolved)
+                                        / len(resolved)), 4),
         "brier": round(b, 5),
         "baseline_brier": round(base_b, 5),
         "skill": round(1 - b / base_b, 4) if base_b > 0 else None,
@@ -205,6 +251,9 @@ def render_stats(s: dict) -> str:
         f"基准 Brier   {s['baseline_brier']:.4f}   （永远猜基准率）",
         f"技巧分       {skill_txt}",
         f"命中率       {s['hit_rate']:.1%}   平均置信度 {s['mean_confidence']:.1%}",
+        f"校准偏差     {s['calibration_gap']:+.1%}   "
+        + ("（比你以为的更准）" if s["calibration_gap"] > 0
+           else "（过度自信）" if s["calibration_gap"] < 0 else "（完全校准）"),
         "",
         "可靠性曲线：",
     ]
