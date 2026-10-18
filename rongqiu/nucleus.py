@@ -144,6 +144,74 @@ def _strip_fence(text: str) -> str:
     return text.strip()
 
 
+BACKGROUND_SYSTEM = """你是「绒球」的处境抽取器。
+
+只做一件事：从用户的话里，抽出**他自己说出的处境**。
+
+【最重要的一条】
+人提问时，几乎总会在问题前面先说一句自己的情况。那一句就是处境，
+**必须抽出来，不许判成"没有处境"**：
+
+  「最近很累，我要不要换工作？」     → 我·感到疲惫·状态
+  「今天身体不舒服，能不能去聚餐？」 → 我·身体不适·身体
+  「钱包有点紧，要不要买手机？」     → 我·资金紧张·钱包
+  「明天要早起，还去不去聚会？」     → 我·需要早起·明天
+  「好久没见他们了，去不去聚会？」   → 我·久未与朋友见面·朋友
+
+常见处境词：累、困、饿、不舒服、生病、忙、闲、没钱、紧、有时间、
+没时间、心情差、烦、压力大、期待、担心、好久没、刚、已经
+
+只有整句话仅仅是「我要不要 X」这种纯问题结构，才返回空数组。
+
+【边界】
+- 只抽用户亲口说的、关于他自己的状态
+- 不要抽他要判断的那件事（那是原核）
+- 不要推测用户没说的
+
+只输出 JSON：{"background": [{"agent": "", "event": "", "resource": ""}]}"""
+
+BACKGROUND_PROMPT = """用户的话：{question}
+
+抽出他自己说出的处境。没有就返回空数组。"""
+
+
+def extract_background(question: str, cfg=None) -> list:
+    """单独抽一次背景处境。
+
+    为什么不跟原核放在一个 prompt 里：
+    一个 prompt 干两件事时，模型会顾此失彼——同一个问题，
+    有时抽出背景，有时直接返回空。而背景是整条判断里最硬的事实，
+    丢了它，第一接触面就少一拍，用户立刻看得出来。
+
+    拆成独立调用只多花一次请求，换来的是稳定。
+    """
+    cfg = cfg or load_config()
+    if not available(cfg):
+        return []
+    raw = complete(BACKGROUND_PROMPT.format(question=question),
+                   system=BACKGROUND_SYSTEM, cfg=cfg)
+    if not raw:
+        return []
+    try:
+        t = raw.strip()
+        if t.startswith("```"):
+            import re
+            t = re.sub(r"^```[a-zA-Z]*\s*", "", t)
+            t = re.sub(r"```\s*$", "", t)
+        data = json.loads(t.strip())
+    except Exception:
+        return []
+    out = []
+    for b in (data.get("background") or []):
+        sf = StatedFact(agent=str(b.get("agent", "")).strip(),
+                        event=str(b.get("event", "")).strip(),
+                        resource=str(b.get("resource", "")).strip(),
+                        raw=question)
+        if sf.complete():
+            out.append(sf)
+    return out
+
+
 def parse(question: str, cfg=None) -> Nucleus:
     cfg = cfg or load_config()
     if not available(cfg):
@@ -167,6 +235,15 @@ def parse(question: str, cfg=None) -> Nucleus:
                         raw=question)
         if sf.complete():
             background.append(sf)
+    # 背景以独立抽取为准，主解析的结果只作兜底。
+    #
+    # 为什么不是合并：两次调用会把同一件事抽出两个近义写法
+    # （「身体不适」和「身体不舒服」），合并去重按精确元组去不掉，
+    # 于是同一件事被算成两个面。宁可丢掉主解析那份，也不能让面数虚高。
+    independent = extract_background(question, cfg)
+    if independent:
+        background = independent
+
     return Nucleus(agent=agent, event=event, resource=resource, binary=binary,
                    raw_question=question, clarify=str(d.get("clarify", "")).strip(),
                    resource_norm=str(d.get("resource_norm", "")).strip(),
