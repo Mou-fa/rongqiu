@@ -24,6 +24,7 @@ class Candidate:
     text: str
     hits: int          # 命中了几个成分（0-3）
     matched: list      # 命中的成分
+    raw: str = ""      # 原文（不展示，只留档）
 
     @property
     def overlap(self) -> float:
@@ -31,7 +32,8 @@ class Candidate:
 
     def as_dict(self) -> dict:
         return {"source": self.source, "text": self.text,
-                "hits": self.hits, "matched": self.matched}
+                "hits": self.hits, "matched": self.matched,
+                "raw": self.raw[:300]}
 
 
 def components(nucleus: Nucleus) -> list[tuple[str, str]]:

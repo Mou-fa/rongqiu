@@ -107,7 +107,8 @@ function renderPrompts() {
   if (!STATE.candidates.length) { box.innerHTML = ""; return; }
   box.innerHTML =
     '<div class="label" style="margin-top:22px">这些可能也是你的情况</div>' +
-    '<p class="hint">从网上找到的，本身不算证据。点选真正符合你的，加入判断。</p>' +
+    '<p class="hint">从全网找到的原文，已浓缩成一句话。本身不算证据，' +
+    '点选真正符合你的，才加入判断。</p>' +
     '<div class="cands" id="cand-list"></div>' +
     '<div class="bar"><span id="picked-count">已选 0 条</span>' +
     '<button id="btn-judge" class="primary" disabled>加入判断</button></div>';
@@ -116,8 +117,7 @@ function renderPrompts() {
     const el = document.createElement("div");
     el.className = "cand";
     el.innerHTML = '<div class="box">✓</div><div><div class="txt">' + esc(truncate(c.text, 90)) +
-      '</div><div class="src">命中 ' + c.hits + '/3 成分' +
-      (c.text.length > 90 ? ' · 原文较长，已截断' : '') + '</div></div>';
+      '</div><div class="src">命中 ' + c.hits + '/3 成分 · 原文已浓缩</div></div>';
     el.onclick = () => {
       if (STATE.picked.has(i)) STATE.picked.delete(i); else STATE.picked.add(i);
       el.classList.toggle("on");
