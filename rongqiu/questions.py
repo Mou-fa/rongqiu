@@ -27,8 +27,24 @@ from .triples import SUPPORT, OPPOSE
 # 这是主动询问和全网场景最大的区别：全网场景的方向要模型猜，
 # 主动询问的方向是用户自己给的——所以它更硬。
 YES, NO = "yes", "no"
-DIRECTION = {YES: SUPPORT, NO: OPPOSE}
 ANSWER_LABEL = {YES: "是", NO: "否"}
+
+# 极性：这个词条的「是」，对原核意味着什么。
+#
+# 大部分问句是正向的：「你上一次最后怎么选的？」答「是（选去做）」→ 倾向会。
+# 但有些问句是反向的：「这件事你已经反复想了一阵子了吗？」
+#   答「是」= 还在折腾 = 倾向不做 → 方向要反过来。
+#
+# 没有这个字段的早期词条一律按 positive 处理。
+POLARITY_POSITIVE, POLARITY_NEGATIVE = "positive", "negative"
+
+
+def direction_of(polarity: str, answer: str) -> str:
+    """把 (极性, 是/否) 映射成方向。"""
+    yes_means_support = (polarity != POLARITY_NEGATIVE)
+    if answer == YES:
+        return SUPPORT if yes_means_support else OPPOSE
+    return OPPOSE if yes_means_support else SUPPORT
 
 ROOT = Path(__file__).resolve().parents[1]
 QUESTIONS_PATH = ROOT / "configs" / "questions.yaml"
@@ -57,10 +73,14 @@ def load() -> list[dict]:
         text = str(it.get("text", "")).strip()
         if not text:
             continue
+        polarity = str(it.get("polarity", POLARITY_POSITIVE)).strip().lower()
+        if polarity not in (POLARITY_POSITIVE, POLARITY_NEGATIVE):
+            polarity = POLARITY_POSITIVE
         out.append({
             "id": str(it.get("id", "")).strip() or f"q{len(out)}",
             "text": text,
             "when": str(it.get("when", "always")).strip() or "always",
+            "polarity": polarity,
             "why": str(it.get("why", "")).strip(),
         })
     return out or [dict(DEFAULT)]
@@ -127,7 +147,7 @@ def answers_to_facts(answers: list, order_start: int = 0) -> list:
         q = bank[qid]
         facts.append(SceneFact(
             scene=f"{q['text']}（答：{ANSWER_LABEL[ans]}）",
-            supports=DIRECTION[ans],
+            supports=direction_of(q.get("polarity", POLARITY_POSITIVE), ans),
             source="主动询问",
             order=order_start + len(facts),
             depth=1,

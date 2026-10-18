@@ -30,6 +30,43 @@ def test_no_maps_to_oppose():
     assert "否" in fs[0].scene
 
 
+def test_negative_polarity_flips_direction(monkeypatch, tmp_path):
+    """反向词条：答「是」意味着卡在等和怕里，默认结局是不做 → oppose。
+
+    「人们总是在等和怕中来回折腾」——等是用时间换确定性，怕是用不行动
+    换安全，两者互相触发成闭环。卡在闭环里，越等越怕，最后往往是不做。
+    """
+    bank = tmp_path / "questions.yaml"
+    bank.write_text(
+        "questions:\n"
+        "  - id: still_waiting\n"
+        "    text: 这件事你已经反复想了一阵子，是吗？\n"
+        "    polarity: negative\n",
+        encoding="utf-8")
+    monkeypatch.setattr(questions, "QUESTIONS_PATH", bank)
+
+    yes = questions.answers_to_facts([{"id": "still_waiting", "answer": "yes"}])[0]
+    no = questions.answers_to_facts([{"id": "still_waiting", "answer": "no"}])[0]
+    assert yes.supports == OPPOSE
+    assert no.supports == SUPPORT
+
+
+def test_positive_polarity_is_the_default(monkeypatch, tmp_path):
+    bank = tmp_path / "questions.yaml"
+    bank.write_text(
+        "questions:\n  - id: a\n    text: 第一句？\n", encoding="utf-8")
+    monkeypatch.setattr(questions, "QUESTIONS_PATH", bank)
+    yes = questions.answers_to_facts([{"id": "a", "answer": "yes"}])[0]
+    assert yes.supports == SUPPORT
+
+
+def test_bank_has_the_two_canonical_questions():
+    """问题库里现有的两句：上次怎么选（正向）、还在折腾吗（反向）。"""
+    ids = {q["id"]: q for q in questions.load()}
+    assert "last_time" in ids and ids["last_time"]["polarity"] == "positive"
+    assert "still_waiting" in ids and ids["still_waiting"]["polarity"] == "negative"
+
+
 def test_invalid_answer_is_ignored():
     """自由文本一律不接受——只能是 yes / no。"""
     fs = questions.answers_to_facts([
