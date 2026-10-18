@@ -37,6 +37,8 @@ async function ask() {
     STATE.stated = d.stated || [];
     STATE.picked = new Set();
     STATE.query = q;
+    STATE.questions = d.questions || [];
+    STATE.answers = [];
     renderAll(d);
     show("step-result");
   } catch (e) {
@@ -66,7 +68,29 @@ function renderAll(d) {
   }
 
   renderStructure(STATE.auto);
+  renderQuestions();
   renderPrompts();
+}
+
+function renderQuestions() {
+  const box = $("#ask-question");
+  if (!STATE.questions || !STATE.questions.length) { box.innerHTML = ""; return; }
+  box.innerHTML = STATE.questions.map((q, i) =>
+    '<div class="askcard">' +
+      '<div class="qtxt">' + esc(q.text) + '</div>' +
+      '<textarea class="qans" rows="2" data-i="' + i + '" ' +
+        'placeholder="用一句话说说就行，不想答也没关系"></textarea>' +
+    '</div>'
+  ).join("") +
+  '<div class="askbar"><button id="btn-answer" class="ghost small">把回答加入判断</button></div>';
+
+  $("#btn-answer").onclick = async () => {
+    const answers = [...document.querySelectorAll(".qans")]
+      .map(t => t.value.trim()).filter(Boolean);
+    if (!answers.length) return;
+    STATE.answers = answers;
+    await judgeAgain(answers);
+  };
 }
 
 function renderStructure(j) {
@@ -158,15 +182,18 @@ function metric(k, v) {
   return '<div class="metric"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>';
 }
 
-async function judgeAgain() {
-  const btn = $("#btn-judge");
-  btn.disabled = true; btn.textContent = "重算中…";
+async function judgeAgain(extraAnswers) {
+  const btn = $("#btn-judge") || $("#btn-answer");
+  if (btn) { btn.disabled = true; btn.textContent = "重算中…"; }
   const selected = [...STATE.picked].sort((a, b) => a - b)
     .map(i => ({ text: STATE.candidates[i].text, source: STATE.candidates[i].source }));
+  // 用户对主动询问的回答，是他自己的处境，算最硬的一类事实
+  const stated = STATE.stated.map(b => ({ text: b.agent + " " + b.event + " " + b.resource }));
+  (extraAnswers || STATE.answers || []).forEach(a => stated.push({ text: a }));
   try {
     const d = await post("/api/judge", {
       question: STATE.query, binary: STATE.nucleus.binary,
-      selected, stated: STATE.stated.map(b => ({ text: b.agent + " " + b.event + " " + b.resource })),
+      selected, stated,
     });
     if (!d.ok) {
       // 不弹窗，也不清空已有结果——只在候选区下面给一句能照做的话。
@@ -185,6 +212,8 @@ async function judgeAgain() {
     alert("出错了：" + e.message);
   } finally {
     updateBar();
+    const b2 = $("#btn-answer");
+    if (b2) { b2.disabled = false; b2.textContent = "把回答加入判断"; }
   }
 }
 

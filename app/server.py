@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from rongqiu import indexer, journal, node, nucleus, origin, review, search  # noqa: E402
+from rongqiu import indexer, journal, node, nucleus, origin, questions, review, search  # noqa: E402
 
 app = FastAPI(title="绒球")
 STATIC = ROOT / "app" / "static"
@@ -93,6 +93,9 @@ def api_ask(body: AskBody):
         "stated": [b.as_dict() for b in nu.background],
         "total_hits": len(results),
         "auto": auto,
+        # 主动询问：问句来自 configs/questions.yaml，由用户确定，系统不发明。
+        # 只问「发生过的、能被看见的」——不问为什么。
+        "questions": questions.for_nucleus(nu, has_history=bool(journal.load())),
     }
 
 
