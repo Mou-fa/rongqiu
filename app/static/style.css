@@ -256,3 +256,68 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
 .envchip { font-size: 12.5px; color: var(--ink-2); background: #fff;
   border: 1px solid #e3ebf1; border-radius: 999px; padding: 3px 10px; }
 .envbtn { margin-top: 9px; }
+/* ============ 主栏 + 侧栏（便签） ============ */
+.shell { max-width: 980px; margin: 0 auto; }
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 296px;
+  gap: 34px;
+  align-items: start;
+}
+.main { min-width: 0; }
+.aside { align-self: start; position: sticky; top: 24px; }
+
+/* 便签：纸的感觉，轻微倾斜，顶部一条胶带 */
+.note {
+  position: relative;
+  background: linear-gradient(178deg, #fffdf4 0%, #fdf8ea 100%);
+  border: 1px solid #efe4c8;
+  border-radius: 3px;
+  padding: 20px 16px 14px;
+  transform: rotate(-1.3deg);
+  box-shadow: 0 8px 20px rgba(120, 100, 60, .13),
+              0 1px 0 #fff inset;
+}
+.note-tape {
+  position: absolute; top: -10px; left: 50%;
+  transform: translateX(-50%) rotate(-2.5deg);
+  width: 64px; height: 21px;
+  background: rgba(242, 227, 190, .8);
+  border: 1px solid rgba(222, 203, 160, .55);
+  border-radius: 2px;
+}
+.note-title {
+  font-size: 12px; letter-spacing: 4px; color: #b9a67e;
+  margin-bottom: 10px; text-align: center;
+}
+.note-list { list-style: none; margin: 0; padding: 0; }
+.note-list li {
+  font-size: 13.5px; line-height: 1.55; color: #6b6350;
+  padding: 7px 2px; border-bottom: 1px dashed #eee3c9;
+}
+.note-list li:last-child { border-bottom: none; }
+.note-btn {
+  margin-top: 12px; width: 100%; padding: 9px 6px;
+  font-size: 12px; font-family: inherit; cursor: pointer;
+  background: #fff; border: 1px dashed #d9c9a3;
+  border-radius: 6px; color: #8a7a55;
+}
+.note-btn:hover { border-color: #c4ad7c; color: #6b5c3a; }
+.note-empty { font-size: 12.5px; color: #b9a67e; line-height: 1.7; }
+.note-foot {
+  margin-top: 12px; font-size: 10.5px; color: #c2b18c;
+  text-align: center; letter-spacing: .5px;
+}
+
+/* 窄屏：便签变成顶部一条横向信息条，不再倾斜 */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 14px; }
+  .aside { position: static; order: -1; }
+  .note { transform: none; padding: 12px 14px; }
+  .note-tape { display: none; }
+  .note-title { display: none; }
+  .note-list { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .note-list li { border-bottom: none; padding: 1px 0; font-size: 12.5px; }
+  .note-btn { width: auto; margin-top: 8px; }
+  .note-foot { margin-top: 6px; text-align: left; }
+}

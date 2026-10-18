@@ -105,21 +105,27 @@ async function loadEnv() {
 }
 
 function renderEnv(d) {
-  const box = $("#env-block");
+  const box = $("#env-note");
+  if (!box) return;
   const facts = (d && d.facts) || [];
   const canLocate = !!(navigator.geolocation);
-  if (!facts.length) { box.innerHTML = ""; return; }
-  box.innerHTML =
-    '<div class="envwrap">' +
-      '<div class="label">环境讯息 · 仅供参考，不计入面数</div>' +
-      '<div class="envfacts">' +
-        facts.map(f => '<span class="envchip">' + esc(f) + '</span>').join("") +
-      '</div>' +
-      (!STATE.coords
-        ? '<button id="btn-locate" class="ghost small envbtn">' +
-          (canLocate ? "允许定位，补上地区天气" : "浏览器不支持定位") + '</button>'
-        : '') +
-    '</div>';
+
+  // 便签：页面一打开就有时间，不会空着等判断
+  let h = '<div class="note-tape"></div>' +
+          '<div class="note-title">此刻</div>';
+  if (facts.length) {
+    h += '<ul class="note-list">' +
+      facts.map(f => '<li>' + esc(f) + '</li>').join("") + '</ul>';
+  } else {
+    h += '<p class="note-empty">正在取时间…</p>';
+  }
+  if (!STATE.coords && canLocate) {
+    h += '<button id="btn-locate" class="note-btn">允许定位，补上地区和天气</button>';
+  } else if (!STATE.coords) {
+    h += '<p class="note-empty">浏览器不支持定位</p>';
+  }
+  h += '<div class="note-foot">讯息，仅供参考，不计入面数</div>';
+  box.innerHTML = h;
   const b = $("#btn-locate");
   if (b) b.onclick = requestLocation;
 }
@@ -339,6 +345,8 @@ function esc(s) {
 }
 
 show("step-ask");
+loadEnv();                 // 便签先出时间，不等判断
+
 const TAB0 = (location.hash || "").replace("#", "");
 if (TAB0 === "pending" || TAB0 === "stats") switchTab(TAB0);
 
