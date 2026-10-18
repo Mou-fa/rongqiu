@@ -351,8 +351,9 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
 /* 按钮降级成次要操作：细边框、灰字、无填充 */
 .bar .bar-btn {
   flex: none; width: auto; margin: 0; padding: 7px 13px;
-  font-size: 12px; font-weight: 400;
-  background: transparent; color: var(--ink-3);
+  /* 加粗，但压住不要超过结论（结论是 800） */
+  font-size: 12.5px; font-weight: 600;
+  background: transparent; color: var(--ink-2);
   border: 1px solid var(--line); border-radius: 8px;
   cursor: pointer;
 }
