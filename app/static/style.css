@@ -41,6 +41,7 @@ header { margin-bottom: 22px; }
 .brand { font-size: 21px; font-weight: 800; letter-spacing: .6px;
   display: flex; align-items: center; gap: 8px;
   width: fit-content; }        /* 渐变的宽度 = 文字宽度，整条彩虹才铺得满 */
+.brand .logo { width: 26px; height: 26px; display: block; flex: none; }
 .tagline { font-size: 19px; font-weight: 800; letter-spacing: .8px;
   padding-left: 19px; margin-top: 2px;
   width: fit-content;
@@ -312,7 +313,7 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
 /* 窄屏：便签变成顶部一条横向信息条，不再倾斜 */
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; gap: 14px; }
-  .aside { position: static; order: -1; }
+  .aside { position: static; order: 2; }   /* 窄屏时便签放到整页最后，不能跑到 logo 上面 */
   .note { transform: none; padding: 12px 14px; }
   .note-tape { display: none; }
   .note-title { display: none; }
