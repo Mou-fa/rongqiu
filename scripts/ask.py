@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from rongqiu import journal, match, node, nucleus, review, search  # noqa: E402
+from rongqiu import indexer, journal, node, nucleus, review, search  # noqa: E402
 
 
 def main(argv=None) -> int:
@@ -48,7 +48,7 @@ def main(argv=None) -> int:
     results = search.search(query, cfg)
     print(f"   检索返回 {len(results)} 条")
 
-    cands = match.rank(nu, results, min_hits=args.min_hits)
+    cands = indexer.rank(nu, results, min_hits=args.min_hits)
     print(f"   其中 {len(cands)} 条命中原核成分")
     if not cands:
         print("   没有找到符合原核的场景。")

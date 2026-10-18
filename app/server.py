@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from rongqiu import journal, match, node, nucleus, review, search  # noqa: E402
+from rongqiu import indexer, journal, node, nucleus, review, search  # noqa: E402
 
 app = FastAPI(title="绒球")
 STATIC = ROOT / "app" / "static"
@@ -50,7 +50,7 @@ def api_ask(body: AskBody):
     cfg = search.load_config()
     query = f"{nu.agent} {nu.event} {nu.resource}"
     results = search.search(query, cfg)
-    cands = match.rank(nu, results, min_hits=2)
+    cands = indexer.rank(nu, results, min_hits=2)
     return {
         "nucleus": nu.as_dict(),
         "query": query,

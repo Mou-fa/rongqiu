@@ -33,7 +33,7 @@ CACHE_DIR = ROOT / "data" / "search_cache"
 class SearchConfig:
     provider: str = "local"
     api_key: str = ""
-    max_results: int = 10
+    max_results: int = 60
     timeout: float = 25.0
 
 
@@ -110,7 +110,15 @@ PROVIDERS = {"tavily": _tavily, "bocha": _bocha, "serper": _serper}
 
 
 def _local(query: str, cfg: SearchConfig) -> list[tuple[str, str]]:
-    """无 key 时的退路：读本地语料。开发/测试用，不联网。"""
+    """无 key 时的退路：把本地语料整批当作「搜索结果」返回。
+
+    这里**故意不做关键词过滤**。查询词是规范化之后的（「更换」），
+    而原文里写的是口语（「换」）——如果在这里按字面过滤，相关内容在
+    进入匹配之前就被杀光了。相关性判断交给 indexer 在三元组空间里做。
+
+    真实搜索 API 的行为也是这样：搜索引擎按语义返回一批结果，
+    由我们自己的匹配层来筛。
+    """
     path = ROOT / "data" / "local_corpus.json"
     if not path.exists():
         return []
@@ -118,13 +126,8 @@ def _local(query: str, cfg: SearchConfig) -> list[tuple[str, str]]:
         items = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return []
-    terms = [t for t in query.replace(",", " ").split() if t]
-    out = []
-    for it in items:
-        text = it.get("text", "")
-        if all(t in text for t in terms):
-            out.append((it.get("source", "local"), text))
-    return out[:cfg.max_results]
+    return [(it.get("source", "local"), it.get("text", ""))
+            for it in items if it.get("text")][:cfg.max_results]
 
 
 def search(query: str, cfg: SearchConfig | None = None,
