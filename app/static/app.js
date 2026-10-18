@@ -228,16 +228,16 @@ function renderStructure(j) {
     metric("可确定", Math.round(sp.determinable * 100) + "%") +
     metric("支持/反对/中性", c.support + "/" + c.oppose + "/" + c.neutral) +
     '</div>' +
-    '<div class="split-line">中性只存在于 11（假设+未知）· ' +
+    '<div class="split-line">中性只存在于 11（半知+未知）· ' +
     '811 结构：可确定 ' + Math.round(sp.determinable * 100) +
-    '% · 假设 ' + Math.round(sp.assumption * 100) +
+    '% · 半知 ' + Math.round(sp.assumption * 100) +
     '% · 未知 ' + Math.round(sp.unknown * 100) +
     '%   链长 ' + (j.max_depth || 1) + '</div>' +
     (j.dropped > 0
       ? '<div class="dropline">有 ' + j.dropped + ' 条场景判不出方向，未计入' +
         '（事实层只允许二元对立）</div>'
       : '') +
-    (j.assumption ? '<div class="slots"><div class="slot"><b>假设</b>　' + esc(j.assumption) + '</div></div>' : '') +
+    (j.assumption ? '<div class="slots"><div class="slot"><b>半知</b>　' + esc(j.assumption) + '</div></div>' : '') +
     (j.unknown ? '<div class="slots"><div class="slot"><b>未知</b>　' + esc(j.unknown) + '</div></div>' : '');
 
   // 倾向不放在结构块里了——它挪到底部操作栏，紧挨着按钮。

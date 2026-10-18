@@ -64,7 +64,7 @@ class Judgment:
 
     @property
     def total_surfaces(self) -> int:
-        """总面数 = 事实面 + 假设 1 + 未知 1。
+        """总面数 = 事实面 + 半知 1 + 未知 1。
 
         用户说的「第一接触面」是这个数：8 条事实对应 10 个面。
         """
@@ -100,9 +100,9 @@ class Judgment:
             f"原核：{self.nucleus}",
             f"倾向：{side}（置信 {self.confidence:.2f}）",
             (f"第一接触面 = {self.total_surfaces} 个面"
-             f"（{self.n} 条事实 + 1 假设 + 1 未知）")
+             f"（{self.n} 条事实 + 1 半知 + 1 未知）")
             + (lambda s: f"  可确定 {s['determinable']:.0%} : "
-                         f"假设 {s['assumption']:.0%} : 未知 {s['unknown']:.0%}")(self.split())
+                         f"半知 {s['assumption']:.0%} : 未知 {s['unknown']:.0%}")(self.split())
             + f"  支持率 {self.support_ratio:.0%}",
             f"链长 = {self.max_depth}"
             + ("  ⚠ 超过 3 级，确定性已降到一半以下" if self.max_depth > MAX_DEPTH else ""),
@@ -115,7 +115,7 @@ class Judgment:
             freq = f" {f.frequency:.0%}" if f.frequency < 1.0 else ""
             lines.append(f"  [{f.grade}] {mark} {f.as_text()}  （{f.source}{freq}）")
         if self.assumption:
-            lines.append(f"假设槽：{self.assumption}")
+            lines.append(f"半知槽：{self.assumption}")
         if self.unknown:
             lines.append(f"未知槽：{self.unknown}")
         if self.reason:
@@ -183,7 +183,7 @@ class Node:
             # 假设槽和未知槽必须给出一个方向，否则二元判定没有依据。
             lean = tie_break_lean or "no"
             rule = "tie_break_11"
-            reason = tie_break_reason or "平票，由假设与未知槽决定"
+            reason = tie_break_reason or "平票，由半知与未知槽决定"
         else:
             lean = "yes" if ratio > 0.5 else "no"
             reason = ""
