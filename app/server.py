@@ -55,7 +55,6 @@ class JudgeBody(BaseModel):
     selected: list[SelectedItem] = []     # 用户认领的全网场景
     stated: list[SelectedItem] = []       # 用户自述（自动带入）
     answers: list[AnswerItem] = []        # 主动询问的 yes/no 回答
-    env: list[str] = []                   # 环境已知面（时间/地区/天气）
     assumption: str = ""
     unknown: str = ""
 
@@ -83,23 +82,16 @@ def api_ask(body: AskBody):
     # 全网找到的内容是【提示】，不是证据：它们是文章、观点、统计，
     # 属于别人的东西。按原则它们零权重，只作为镜子给用户看，
     # 用户认领了才升级成事实。
-    # 环境已知面：时间永远有；给了坐标就有地区和天气。
-    # 它们是系统自己拿到的客观事实，和用户自述一样进入确定槽。
+    # 环境信息（时间 / 地区 / 天气）：只展示，不进判断。
+    #
+    # 它是讯息，不是工作内容。用户看到「现在是深夜 3 点，外面下着毛毛雨」
+    # 自己会有判断，但系统不替他把天气换算成一个「面」——
+    # 那会把客观信息硬拗成方向，是编造。
     env_text = environment.collect(body.lat, body.lon)["facts"]
-    env_facts = [review.SceneFact(scene=t, source="环境已知面",
-                                  order=i, depth=1, origin=-20 - i)
-                 for i, t in enumerate(env_text)]
-    if env_facts:
-        # 环境面允许中性：跟原核无关的（比如「我在北京市」）直接丢掉，
-        # 不硬凑方向。用户认领的事实仍然强制二元。
-        review.direction_of(env_facts, nu.binary, runs=1, neutral_ok=True)
-        from rongqiu.triples import SUPPORT as _S, OPPOSE as _O
-        env_facts = [f for f in env_facts if f.supports in (_S, _O)]
 
-    stated = env_facts + [review.SceneFact(scene=b.as_text(), source="用户自述",
-                                           order=len(env_facts) + i,
-                                           depth=1, origin=-10 - i)
-                          for i, b in enumerate(nu.background)]
+    stated = [review.SceneFact(scene=b.as_text(), source="用户自述",
+                               order=i, depth=1, origin=-10 - i)
+              for i, b in enumerate(nu.background)]
 
     if stated:
         review.direction_of(stated, nu.binary)
@@ -124,6 +116,8 @@ def api_ask(body: AskBody):
         "auto": auto,
         # 主动询问：问句来自 configs/questions.yaml，由用户确定，系统不发明。
         # 只问「发生过的、能被看见的」——不问为什么。
+        # 环境讯息：只给界面展示，不参与任何计数
+        "env": env_text,
         "questions": questions.for_nucleus(nu, has_history=bool(journal.load())),
         # 固定询问面总数：等于问题库的词条数。用户加词条它就变，代码不写死。
         "surface_quota": questions.surface_quota(),
@@ -137,15 +131,9 @@ def api_judge(body: JudgeBody):
     # 会被模型重新判一遍，可能改成中性甚至反对。
     qa_facts = questions.answers_to_facts([a.model_dump() for a in body.answers])
 
-    # 环境已知面：时间、地区、天气。系统自己拿到的，不需要用户描述。
-    env_facts = [review.SceneFact(scene=t, source="环境已知面",
-                                  order=i, depth=1, origin=-20 - i)
-                 for i, t in enumerate(body.env) if str(t).strip()]
-
-    others = env_facts + [review.SceneFact(scene=s.text, source="用户自述",
-                                           order=len(env_facts) + i,
-                                           origin=-10 - i)
-                          for i, s in enumerate(body.stated)]
+    others = [review.SceneFact(scene=s.text, source="用户自述",
+                               order=i, origin=-10 - i)
+              for i, s in enumerate(body.stated)]
     others += [review.SceneFact(scene=s.text, source=s.source,
                                 order=len(others) + i)
                for i, s in enumerate(body.selected)]
@@ -159,7 +147,7 @@ def api_judge(body: JudgeBody):
     # 主动询问的答案方向已定；但如果其他事实全被判成中性，也要兜一次
     review.force_binary(facts, body.binary)
     nu = nucleus.Nucleus(agent="", event="", resource="", binary=body.binary)
-    web = [f for f in facts if f.source not in ("用户自述", "主动询问", "环境已知面")]
+    web = [f for f in facts if f.source not in ("用户自述", "主动询问")]
     if web:
         mapping = origin.cluster(web)
         for i, f in enumerate(web):

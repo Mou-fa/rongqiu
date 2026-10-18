@@ -80,7 +80,12 @@ function renderAll(d) {
   renderStructure(STATE.auto);
   renderQuestions();
   renderPrompts();
-  loadEnv();
+  if (d && d.env) {
+    STATE.env = d.env;
+    renderEnv({ facts: d.env });
+  } else {
+    loadEnv();
+  }
 }
 
 // ---------- 环境已知面：时间 / 地区 / 天气 ----------
@@ -106,7 +111,7 @@ function renderEnv(d) {
   if (!facts.length) { box.innerHTML = ""; return; }
   box.innerHTML =
     '<div class="envwrap">' +
-      '<div class="label">环境（系统自己知道的）</div>' +
+      '<div class="label">环境讯息 · 仅供参考，不计入面数</div>' +
       '<div class="envfacts">' +
         facts.map(f => '<span class="envchip">' + esc(f) + '</span>').join("") +
       '</div>' +
@@ -295,7 +300,6 @@ async function judgeAgain() {
       question: STATE.query, binary: STATE.nucleus.binary,
       selected, stated,
       answers: STATE.answers || [],
-      env: STATE.env || [],
     });
     if (!d.ok) {
       // 不弹窗，也不清空已有结果——只在候选区下面给一句能照做的话。
