@@ -32,6 +32,9 @@ INDEX_PATH = ROOT / "data" / "triple_index.json"
 # 每次调用都要等模型——这个上限决定了用户等待时间的长短。
 MAX_INDEX_PER_QUERY = 18
 
+# 候选最多显示这么多条。太多了用户看不过来。
+MAX_CANDIDATES = 12
+
 SYSTEM = """你是「绒球」的文本索引器。
 
 对一段文本，输出两样东西：
@@ -304,5 +307,15 @@ def rank(nucleus: Nucleus, texts: list[tuple[str, str]],
         cand = match.Candidate(src, sentence, best_hits, best_matched)
         cand.raw = text
         out.append(cand)
+
+    if not out:
+        return out
     out.sort(key=lambda c: -c.hits)
-    return out
+
+    # 自适应门槛：有命中 2 个以上成分的，就不要只命中 1 个的。
+    # 「天气」这种词太泛，只共享一个资源也会把「天气预报 APP」拉进来，
+    # 那些跟用户的决定毫无关系。门槛跟着手上最好的那批走。
+    best = out[0].hits
+    if best >= 2:
+        out = [c for c in out if c.hits >= 2]
+    return out[:MAX_CANDIDATES]

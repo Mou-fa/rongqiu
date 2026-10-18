@@ -117,7 +117,8 @@ function renderPrompts() {
     '点选真正符合你的，才加入判断。</p>' +
     '<div class="cands" id="cand-list"></div>' +
     '<div class="bar"><span id="picked-count">已选 0 条</span>' +
-    '<button id="btn-judge" class="primary" disabled>加入判断</button></div>';
+    '<button id="btn-judge" class="primary">加入判断</button></div>' +
+    '<div id="judge-note" class="judge-note hidden"></div>';
   const list = $("#cand-list");
   STATE.candidates.forEach((c, i) => {
     const el = document.createElement("div");
@@ -167,7 +168,17 @@ async function judgeAgain() {
       question: STATE.query, binary: STATE.nucleus.binary,
       selected, stated: STATE.stated.map(b => ({ text: b.agent + " " + b.event + " " + b.resource })),
     });
-    if (!d.ok) { alert(d.message); return; }
+    if (!d.ok) {
+      // 不弹窗，也不清空已有结果——只在候选区下面给一句能照做的话。
+      const note = $("#judge-note");
+      if (note) {
+        note.textContent = d.message || "还没有可判断的第一接触面。";
+        note.classList.remove("hidden");
+      }
+      return;
+    }
+    const note = $("#judge-note");
+    if (note) note.classList.add("hidden");
     STATE.auto = d.judgment;
     renderStructure(d.judgment);
   } catch (e) {

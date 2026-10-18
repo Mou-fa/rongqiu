@@ -122,7 +122,11 @@ def api_judge(body: JudgeBody):
                                 unknown=unknown)
     j = nd.judge()
     if j is None:
-        return {"ok": False, "message": "选中的场景里没有方向性证据，节点不成立。"}
+        # 一条事实都没有：既没勾选场景，问题里也没说出自己的处境。
+        # 这不是错误，只是还缺一个接触面——告诉用户怎么补，别把他堵死。
+        return {"ok": False, "need": "surface",
+                "message": "还没有可判断的第一接触面。勾选一条场景，"
+                           "或者把你的处境写进问题里（比如「今天身体不舒服，要不要去聚餐」）。"}
     entry = journal.record(j, body.question, resolve_days=7)
     return {"ok": True, "judgment": j.as_dict(), "id": entry["id"],
             "resolve_by": entry["resolve_by"]}
