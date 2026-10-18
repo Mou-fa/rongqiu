@@ -23,7 +23,12 @@ body {
 .shell { max-width: 620px; margin: 0 auto; }
 
 header { margin-bottom: 22px; }
-.brand { font-size: 19px; font-weight: 600; letter-spacing: .5px; display: flex; align-items: center; gap: 8px; }
+.brand { font-size: 21px; font-weight: 800; letter-spacing: .6px;
+  display: flex; align-items: center; gap: 8px;
+  color: #e08a9e;              /* 淡粉 */
+  -webkit-text-stroke: .2px #d97d92;
+}
+.brand .dash { font-weight: 500; opacity: .75; margin: 0 2px; }
 .dot { width: 11px; height: 11px; border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, #b9d6c2, var(--accent)); }
 .sub { color: var(--ink-2); font-size: 13.5px; margin-top: 4px; }
