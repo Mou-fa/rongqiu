@@ -1,0 +1,14 @@
+# 复制成 configs/search.yaml 并填入 key。这个文件在 .gitignore 里，不会被提交。
+#
+# provider 可选：tavily / bocha / serper / sogou / local
+#   tavily   https://tavily.com        专为 AI 设计，返回正文片段，有免费额度（推荐）
+#   bocha    https://bochaai.com       中文搜索，按次计费
+#   serper   https://serper.dev        Google 结果
+#   sogou    不需要 key，但会被限流（实测撑不住）
+#   local    读 data/local_corpus.json，不联网
+#
+# 没有 key 时自动退回 local，系统仍然能跑，只是第一接触面很少。
+
+provider: tavily
+api_key: ""
+max_results: 20

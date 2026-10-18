@@ -35,7 +35,7 @@ CACHE_DIR = ROOT / "data" / "search_cache"
 
 @dataclass
 class SearchConfig:
-    provider: str = "sogou"
+    provider: str = "tavily"
     base_url_llm: str = "https://api.deepseek.com"
     api_key: str = ""
     max_results: int = 60
@@ -86,12 +86,25 @@ def _post(url: str, payload: dict, headers: dict, timeout: float) -> dict | None
 
 
 def _tavily(query: str, cfg: SearchConfig) -> list[tuple[str, str]]:
+    """Tavily：专为 AI 设计，返回的是页面正文片段而不是截断的摘要。
+
+    这正是绒球需要的——我们要的是能读懂的场景文本，不是关键词高亮。
+    key 同时放在 body 和 Authorization 头里：新旧两版 API 的取法不同。
+    """
     body = _post("https://api.tavily.com/search",
                  {"api_key": cfg.api_key, "query": query,
-                  "max_results": cfg.max_results, "search_depth": "basic"},
-                 {}, cfg.timeout) or {}
-    return [(r.get("url", "web"), r.get("content") or r.get("title", ""))
-            for r in body.get("results", []) if (r.get("content") or r.get("title"))]
+                  "max_results": min(cfg.max_results, 20),
+                  "search_depth": "basic",
+                  "include_answer": False,
+                  "include_raw_content": False},
+                 {"Authorization": "Bearer " + cfg.api_key}, cfg.timeout) or {}
+    out = []
+    for r in body.get("results", []):
+        text = (r.get("content") or "").strip()
+        if not text:
+            continue
+        out.append((f"tavily:{r.get('title', '')[:36]}", text))
+    return out
 
 
 def _bocha(query: str, cfg: SearchConfig) -> list[tuple[str, str]]:
