@@ -2,6 +2,7 @@
 data/
 *.jsonl
 configs/llm.yaml
+configs/search.yaml
 
 # python
 __pycache__/
