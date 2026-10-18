@@ -115,8 +115,9 @@ function renderPrompts() {
   STATE.candidates.forEach((c, i) => {
     const el = document.createElement("div");
     el.className = "cand";
-    el.innerHTML = '<div class="box">✓</div><div><div class="txt">' + esc(c.text) +
-      '</div><div class="src">命中 ' + c.hits + '/3 成分</div></div>';
+    el.innerHTML = '<div class="box">✓</div><div><div class="txt">' + esc(truncate(c.text, 90)) +
+      '</div><div class="src">命中 ' + c.hits + '/3 成分' +
+      (c.text.length > 90 ? ' · 原文较长，已截断' : '') + '</div></div>';
     el.onclick = () => {
       if (STATE.picked.has(i)) STATE.picked.delete(i); else STATE.picked.add(i);
       el.classList.toggle("on");
@@ -171,6 +172,11 @@ $("#btn-again").onclick = () => {
   show("step-ask");
   $("#question").focus();
 };
+
+function truncate(s, n) {
+  s = String(s || "");
+  return s.length > n ? s.slice(0, n) + "…" : s;
+}
 
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({

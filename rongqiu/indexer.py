@@ -121,13 +121,20 @@ SYNONYMS = {
 
 
 def similar(a: str, b: str) -> bool:
+    """两个成分是不是同一件事。
+
+    单字不做包含匹配：「我」被「我们」包含，但那不是同一个人。
+    第一版就是这么错的，导致「我们参加过聚餐」被算成命中原核的「我·参加·聚餐」。
+    """
     if not a or not b:
         return False
     if a == b:
         return True
-    if a in b or b in a:
+    if a in SYNONYMS.get(b, set()) or b in SYNONYMS.get(a, set()):
         return True
-    return b in SYNONYMS.get(a, set()) or a in SYNONYMS.get(b, set())
+    if len(a) < 2 or len(b) < 2:
+        return False
+    return a in b or b in a
 
 
 def rank(nucleus: Nucleus, texts: list[tuple[str, str]],

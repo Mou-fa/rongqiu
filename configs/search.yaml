@@ -1,4 +1,4 @@
-# 复制成 configs/search.yaml 并填入 key。这个文件在 .gitignore 里，不会被提交。
+﻿# 复制成 configs/search.yaml 并填入 key。这个文件在 .gitignore 里，不会被提交。
 #
 # provider 可选：tavily / bocha / serper / sogou / local
 #   tavily   https://tavily.com        专为 AI 设计，返回正文片段，有免费额度（推荐）
@@ -10,5 +10,5 @@
 # 没有 key 时自动退回 local，系统仍然能跑，只是第一接触面很少。
 
 provider: tavily
-api_key: ""
+api_key: "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"
 max_results: 20
