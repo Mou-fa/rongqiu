@@ -15,20 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from rongqiu import journal, match, node, nucleus, review  # noqa: E402
-
-CORPUS = [
-    ("web", "我参加聚会前通常会先睡一觉，否则全程提不起精神。"),
-    ("web", "我参加聚会一般待两小时就走，主人家也不会介意。"),
-    ("web", "我参加聚会后经常觉得累，第二天状态很差。"),
-    ("web", "我参加聚会时总是找不到话说，场面很尴尬。"),
-    ("web", "我参加聚会最看重的是现场有没有熟人。"),
-    ("web", "我参加聚会很少喝酒，一般十点前就回家。"),
-    ("chat", "老张：周五晚上聚一下？就我们几个老人，好久没见了。"),
-    ("calendar", "10月18日 19:00-21:00 项目复盘会（全员，不可缺席）"),
-    ("news", "苹果发布新款手机，售价 7999 元起。"),
-    ("note", "最近两周平均每天睡 5.5 小时。"),
-]
+from rongqiu import journal, match, node, nucleus, review, search  # noqa: E402
 
 
 def main(argv=None) -> int:
@@ -53,10 +40,18 @@ def main(argv=None) -> int:
     print(f"   原核三元组：{nu.agent} · {nu.event} · {nu.resource}")
     print(f"   二元问题：{nu.binary}，会成立吗？\n")
 
-    print("② 全网匹配：找同一主谓宾构成的场景")
-    cands = match.rank(nu, CORPUS, min_hits=args.min_hits)
-    print(f"   {len(CORPUS)} 条文本中 {len(cands)} 条命中原核成分")
+    cfg = search.load_config()
+    query = f"{nu.agent} {nu.event} {nu.resource}"
+    print(f"② 全网检索：{query}")
+    print(f"   provider = {cfg.provider}"
+          + ("（本地语料，未配置搜索 key）" if cfg.provider == "local" or not cfg.api_key else ""))
+    results = search.search(query, cfg)
+    print(f"   检索返回 {len(results)} 条")
+
+    cands = match.rank(nu, results, min_hits=args.min_hits)
+    print(f"   其中 {len(cands)} 条命中原核成分")
     if not cands:
+        print("   没有找到符合原核的场景。")
         return 1
 
     print("\n③ 点选：哪几条是你的真实情况")
