@@ -50,7 +50,11 @@ def main() -> int:
 
     print("③ 组织 N11 节点 ...")
     nd = node.build(QUESTION, ex, trace)
-    j = nd.judge()
+    agents, sources = trace.independence_pool(ex.facts)
+    print(f"   独立观察者 {agents} 个 / 独立来源 {sources} 个 "
+          f"→ 独立性{'成立' if max(agents, sources) >= 2 else '不成立（退回只看确定性）'}")
+    tb_lean, tb_reason = extract.tie_break_of(QUESTION, TEXTS)
+    j = nd.judge(tie_break_lean=tb_lean, tie_break_reason=tb_reason)
     if j is None:
         print("   节点不成立：没有任何可判定的方向信息")
         return 1

@@ -45,6 +45,8 @@ SYSTEM = """你是「绒球」系统的语义三元组抽取器。
 另外输出：
   assumption = 你必须假设、但文本里没有证据的一件事（一句话）
   unknown = 你完全无法从文本得知、但可能推翻结论的一件事（一句话）
+  tie_break = 当支持与反对的证据数量完全相等时，结合上面 assumption 和 unknown
+              这两项，你倾向哪一个方向，以及理由（一句话）
 """
 
 PROMPT = """【原核】
@@ -62,7 +64,8 @@ PROMPT = """【原核】
       "evidence": "原文里的依据"}}
   ],
   "assumption": "",
-  "unknown": ""
+  "unknown": "",
+  "tie_break": {{"lean": "yes|no", "reason": ""}}
 }}"""
 
 
@@ -131,6 +134,34 @@ def extract(question: str, texts: list[tuple[str, str]],
 
     out.facts = _dedup(list(merged.values()))
     return out
+
+
+def tie_break_of(question: str, texts: list[tuple[str, str]], cfg=None) -> tuple[str, str]:
+    """平票时，用 11（假设 + 未知）决定方向。
+
+    这是一次独立的追问，不重新读事实，只让它回答：
+    「证据打平了，你写的假设和未知把你推向哪边？」
+    """
+    cfg = cfg or load_config()
+    if not available(cfg):
+        return "", ""
+    joined = "\n".join(f"[{s}] {t}" for s, t in texts)
+    prompt = (
+        f"【原核】{question}\n\n【全部原料】\n{joined}\n\n"
+        "现在假设你对这个问题的支持证据与反对证据数量完全相等，无法分胜负。\n"
+        "请只依据下面两项给出倾向：\n"
+        "1. 你必须假设、但没有证据的事\n"
+        "2. 你完全无法知道、但可能推翻结论的事\n\n"
+        '输出 JSON：{"assumption": "", "unknown": "", "lean": "yes|no", "reason": ""}'
+    )
+    raw = complete(prompt, system=SYSTEM, cfg=cfg)
+    if not raw:
+        return "", ""
+    try:
+        data = json.loads(_strip_fence(raw))
+    except json.JSONDecodeError:
+        return "", ""
+    return str(data.get("lean", "")).strip().lower(), str(data.get("reason", "")).strip()
 
 
 def _dedup(triples: list[Triple]) -> list[Triple]:

@@ -44,11 +44,33 @@ def grade_of(triple: Triple) -> str:
     return SOURCE_GRADE.get(triple.source, triple.grade or "L1")
 
 
-def classify(triple: Triple) -> str:
-    """返回该三元组应进的槽：confirmed / assumption / unknown。"""
+def independence_pool(triples: list[Triple]) -> tuple[int, int]:
+    """这一批事实里，有多少个彼此独立的观察者 / 来源。
+
+    事实的资格有两种：确定性（L3+）或者独立性。
+    真实性靠证据等级，独立性靠观察者不重复。
+    """
+    facts = [t for t in triples if t.complete() and t.is_fact()]
+    agents = {t.agent.strip() for t in facts}
+    sources = {t.source.strip() for t in facts}
+    return len(agents), len(sources)
+
+
+def classify(triple: Triple, pool_independent: bool = False) -> str:
+    """返回该三元组应进的槽：confirmed / assumption / unknown。
+
+    事实 = 确定性 OR 独立性：
+      确定性 —— 来源等级 L3+，可审计、可复算
+      独立性 —— 至少两个互不重复的观察者/来源在这一批证据里出现
+    两者满足其一，就进确定槽。
+    """
     if not triple.complete():
         return "unknown"
-    if grade_of(triple) in CONFIRMED_GRADES and triple.is_fact():
+    if not triple.is_fact():
+        return "assumption"
+    if grade_of(triple) in CONFIRMED_GRADES:
+        return "confirmed"
+    if pool_independent:
         return "confirmed"
     return "assumption"
 

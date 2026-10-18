@@ -33,6 +33,7 @@ class Judgment:
     assumption: str
     unknown: str
     facts: list[Triple] = field(default_factory=list)
+    reason: str = ""
 
     def as_dict(self) -> dict:
         return {
@@ -63,6 +64,8 @@ class Judgment:
             lines.append(f"假设槽：{self.assumption}")
         if self.unknown:
             lines.append(f"未知槽：{self.unknown}")
+        if self.reason:
+            lines.append(f"平票理由：{self.reason}")
         return "\n".join(lines)
 
 
@@ -81,26 +84,39 @@ class Node:
     def determinability(self) -> float:
         return self.n / (self.n + 2)
 
-    def judge(self) -> Judgment | None:
+    def judge(self, tie_break_lean: str = "", tie_break_reason: str = "") -> Judgment | None:
         directional = [f for f in self.facts if f.supports in (SUPPORT, OPPOSE)]
         n = len(directional)
         if n == 0:
             return None          # 节点不成立：没有任何可判定的方向信息
         yes = len([f for f in directional if f.supports == SUPPORT])
         ratio = yes / n
-        lean = "yes" if ratio >= 0.5 else "no"
+
+        rule = "direct" if n / (n + 2) > 0.5 else "provisional"
+        if abs(ratio - 0.5) < 1e-9:
+            # 平票：无弃权，交给 11 决定。
+            # 假设槽和未知槽必须给出一个方向，否则二元判定没有依据。
+            lean = tie_break_lean or "no"
+            rule = "tie_break_11"
+            reason = tie_break_reason or "平票，由假设与未知槽决定"
+        else:
+            lean = "yes" if ratio > 0.5 else "no"
+            reason = ""
+
         det = n / (n + 2)
         confidence = min(det * (0.5 + abs(ratio - 0.5)), MAX_CONFIDENCE)
-        rule = "direct" if det > 0.5 else "provisional"
+        if rule == "tie_break_11":
+            confidence = min(confidence, 0.5)   # 平票的判断不该比一半更自信
         return Judgment(
             nucleus=self.nucleus, lean=lean, confidence=confidence,
             n=n, determinability=det, support_ratio=ratio, rule=rule,
             assumption=self.assumption, unknown=self.unknown,
-            facts=directional,
+            facts=directional, reason=reason,
         )
 
 
-def build(question: str, extraction, trace_mod, include_assumptions: bool = False) -> Node:
+def build(question: str, extraction, trace_mod, include_assumptions: bool = False,
+          require_independence: bool = True) -> Node:
     """把一次抽取组织成 N11 节点。
 
     include_assumptions=False 时只让溯源通过的进确定槽（严格按 811）。
@@ -108,8 +124,10 @@ def build(question: str, extraction, trace_mod, include_assumptions: bool = Fals
     「严格溯源」和「宽松溯源」两种判定的差别。
     """
     facts, assume_extra, unknown_extra = [], [], []
+    n_agents, n_sources = trace_mod.independence_pool(extraction.facts)
+    independent = require_independence and max(n_agents, n_sources) >= 2
     for t in extraction.facts:
-        slot = trace_mod.classify(t)
+        slot = trace_mod.classify(t, pool_independent=independent)
         if slot == "confirmed":
             facts.append(t)
         elif slot == "assumption":
