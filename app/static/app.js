@@ -146,7 +146,8 @@ function renderStructure(j) {
     metric("可确定", Math.round(sp.determinable * 100) + "%") +
     metric("支持/反对/中性", c.support + "/" + c.oppose + "/" + c.neutral) +
     '</div>' +
-    '<div class="split-line">811 结构：可确定 ' + Math.round(sp.determinable * 100) +
+    '<div class="split-line">三个数加起来 = 总面数（中性含假设与未知）· ' +
+    '811 结构：可确定 ' + Math.round(sp.determinable * 100) +
     '% · 假设 ' + Math.round(sp.assumption * 100) +
     '% · 未知 ' + Math.round(sp.unknown * 100) +
     '%   链长 ' + (j.max_depth || 1) + '</div>' +

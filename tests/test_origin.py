@@ -43,10 +43,19 @@ def test_total_surfaces_matches_the_eight_one_one_shape():
 
 
 def test_counts_split_support_oppose_neutral():
+    """三个数加起来必须等于总面数。
+
+    中性不只是「事实里判成中性的」，还包括假设和未知这两个固定面——
+    它们同样是第一接触面，只是永远没有方向。
+    """
     facts = [_f("a", SUPPORT, order=0), _f("b", SUPPORT, order=1),
              _f("c", OPPOSE, order=2), _f("d", "neutral", order=3)]
     j = Node(nucleus="x", facts=facts).judge()
-    assert j.counts() == {"support": 2, "oppose": 1, "neutral": 1}
+    c = j.counts()
+    assert c["support"] == 2
+    assert c["oppose"] == 1
+    assert c["neutral"] == 1 + 2          # 1 条中性事实 + 假设 + 未知
+    assert sum(c.values()) == j.total_surfaces   # 加起来就是总面数
     assert j.n == 4                       # 中性也算一个确认过的面
 
 

@@ -92,6 +92,83 @@ def direction_of(scenes: list[SceneFact], nucleus_binary: str, cfg=None,
     return scenes
 
 
+BINARY_SYSTEM = """你是「绒球」的方向判定器。
+
+给定原核和若干场景，判断每个场景让原核更可能成立（support）
+还是更不可能成立（oppose）。
+
+**不允许 neutral。** 每一条都必须在两边里选一个：
+如果它确实不直接说明方向，就判断它整体上更偏向哪一边——
+像这样"没有明确方向"的情形，在做成决定时也必须落到一边。
+这是绒球的原则：不做弃权。
+
+只输出 JSON：{"items": [{"idx": 1, "supports": "support"}, ...]}"""
+
+
+def force_binary(scenes: list[SceneFact], nucleus_binary: str, cfg=None) -> list[SceneFact]:
+    """把中性的事实逼成二元。
+
+    为什么必须这么做：被认领的场景是用户亲手确认「这是我的情况」的，
+    它不可能对原核「没有方向」。判成中性等于说「你确认了一件与决定无关的事」，
+    那是自相矛盾的。
+
+    这也是「无弃权」在事实层的含义——不只是最终输出不弃权，
+    每一条进入判断的事实也不允许弃权。
+    """
+    from .triples import SUPPORT, OPPOSE
+    from .llm import available, complete
+
+    cfg = cfg or load_config()
+    if not available(cfg):
+        return scenes
+
+    # 最多逼两轮。模型第一次常常还是给中性，第二轮用更强硬的措辞。
+    for attempt in range(2):
+        pending = [s for s in scenes if s.supports not in (SUPPORT, OPPOSE)]
+        if not pending:
+            break
+        scenes = _force_once(pending, scenes, nucleus_binary, cfg, strict=(attempt > 0))
+    return scenes
+
+
+def _force_once(pending, scenes, nucleus_binary, cfg, strict=False):
+    from .triples import SUPPORT, OPPOSE
+    from .llm import complete
+
+    lines = "\n".join(f"{i}. {s.scene[:160]}" for i, s in enumerate(pending))
+    tail = ("判断每个场景更偏向哪一边。不允许 neutral，只输出 JSON。")
+    if strict:
+        tail = ("**必须二选一，不许 neutral。** 如果不直接说明方向，就问自己："
+                "假如这件事是真的，「原核成立」会变得更可能还是更不可能？"
+                "必须落到一边。只输出 JSON。")
+    prompt = (f"【原核】{nucleus_binary}，这件事会成立吗？\n\n"
+              f"【场景】\n{lines}\n\n{tail}")
+    raw = complete(prompt, system=BINARY_SYSTEM, cfg=cfg)
+    if not raw:
+        return scenes
+    try:
+        import json
+        t = raw.strip()
+        if t.startswith("```"):
+            import re
+            t = re.sub(r"^```[a-zA-Z]*\s*", "", t)
+            t = re.sub(r"```\s*$", "", t)
+        items = json.loads(t.strip()).get("items", [])
+    except Exception:
+        return scenes
+    for it in items:
+        try:
+            idx = int(it.get("idx", 0)) - 1
+        except (TypeError, ValueError):
+            continue
+        if not (0 <= idx < len(pending)):
+            continue
+        v = str(it.get("supports", "")).strip().lower()
+        if v in (SUPPORT, OPPOSE):
+            pending[idx].supports = v
+    return scenes
+
+
 def _direction_once(scenes: list[SceneFact], nucleus_binary: str, cfg) -> list[SceneFact]:
     lines = "\n".join(f"{i}. {s.scene}" for i, s in enumerate(scenes))
     prompt = (f"【原核】{nucleus_binary}，这件事会成立吗？\n\n"

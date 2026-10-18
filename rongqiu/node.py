@@ -70,12 +70,20 @@ class Judgment:
         return self.n + 2
 
     def counts(self) -> dict:
-        return {
-            "support": sum(1 for f in self.facts if f.supports == SUPPORT),
-            "oppose": sum(1 for f in self.facts if f.supports == OPPOSE),
-            "neutral": sum(1 for f in self.facts
-                           if f.supports not in (SUPPORT, OPPOSE)),
-        }
+        """支持 / 反对 / 中性，三个数加起来等于总面数。
+
+        中性不只是「事实里判成中性的」，还包括假设和未知这两个槽——
+        它们同样是第一接触面，只是永远没有方向。所以：
+            support + oppose + neutral = n + 2
+
+        第一版只数了事实里的中性，三个数加起来是 n，和界面上显示的总面数
+        对不上，用户一眼就看出来了。
+        """
+        s = sum(1 for f in self.facts if f.supports == SUPPORT)
+        o = sum(1 for f in self.facts if f.supports == OPPOSE)
+        n_facts = len(self.facts)
+        # 假设 1 + 未知 1 = 2 个没有方向的固定面
+        return {"support": s, "oppose": o, "neutral": (n_facts - s - o) + 2}
 
     def split(self) -> dict:
         """811 的三段结构。

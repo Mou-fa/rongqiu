@@ -122,8 +122,13 @@ def api_judge(body: JudgeBody):
                for i, s in enumerate(body.selected)]
     if others:
         review.direction_of(others, body.binary)
+        # 认领过的事实不允许弃权：判成中性的，逼它选一边。
+        # 用户点了「这是我的情况」，这件事就不可能对决定没有方向。
+        review.force_binary(others, body.binary)
 
     facts = qa_facts + others
+    # 主动询问的答案方向已定；但如果其他事实全被判成中性，也要兜一次
+    review.force_binary(facts, body.binary)
     nu = nucleus.Nucleus(agent="", event="", resource="", binary=body.binary)
     web = [f for f in facts if f.source not in ("用户自述", "主动询问")]
     if web:
