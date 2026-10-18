@@ -1,0 +1,14 @@
+# 本地数据与密钥
+data/
+*.jsonl
+configs/llm.yaml
+
+# python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# 临时
+_*.txt
+_*.py
