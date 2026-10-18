@@ -56,7 +56,9 @@ def api_ask(body: AskBody):
     query = " ".join(terms[:10])
     # 每个组合词单独搜，合并去重。塞进一个查询会被搜索引擎截断。
     results = search.multi_search(terms, event=nu.event, cfg=cfg)
-    cands = indexer.rank(nu, results, min_hits=2)
+    # min_hits 交给 indexer 的默认值（1）——真正的相关性判据是「共享资源」，
+    # 不是「命中几个成分」。写死 2 会把只出现资源的文章全筛掉。
+    cands = indexer.rank(nu, results)
 
     # 系统先用 811 + REA 自己判一次，不要求用户做任何操作。
     # 「这些场景适用于我」本来就是假设槽该装的东西，系统可以自己承担这个假设。

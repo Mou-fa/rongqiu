@@ -28,7 +28,7 @@ async function ask() {
   const q = $("#question").value.trim();
   if (!q) return;
   const btn = $("#btn-ask");
-  btn.disabled = true; btn.textContent = "正在判断…";
+  btn.disabled = true; btn.textContent = "正在检索和判断…（约 20-40 秒）";
   try {
     const d = await post("/api/ask", { question: q });
     STATE.nucleus = d.nucleus;

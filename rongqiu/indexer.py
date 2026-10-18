@@ -28,6 +28,10 @@ from .nucleus import Nucleus
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_PATH = ROOT / "data" / "triple_index.json"
 
+# 单次查询最多索引多少条。索引是整个链路最慢的一步，
+# 每次调用都要等模型——这个上限决定了用户等待时间的长短。
+MAX_INDEX_PER_QUERY = 18
+
 SYSTEM = """你是「绒球」的文本索引器。
 
 对一段文本，输出两样东西：
@@ -101,17 +105,96 @@ def extract(text: str, cfg=None) -> dict:
     return _entry(raw)
 
 
+BATCH_SYSTEM = """你是「绒球」的文本索引器。
+
+给你多段文本，逐段输出：
+
+1. **三元组**：文本里「谁做了什么、对什么做的」的规范化形式。
+   动词规范化成书面词。必须输出主题三元组（这段讲的是关于哪个情境）。
+   每段最多 3 个。
+2. **浓缩句**：把这段文本的核心事实浓缩成一句**主谓宾状补结构的中文**，
+   不超过 30 字，不添加原文没有的内容，不评价。
+   如果这段没有可提炼的内容（登录页、广告、翻译页、报错页），sentence 为空字符串。
+
+只输出 JSON：
+{"items": [{"idx": 1, "triples": [{"agent":"","event":"","resource":""}], "sentence": ""}]}"""
+
+BATCH_PROMPT = """以下是 {n} 段文本：
+
+{blocks}
+
+请逐段输出三元组和浓缩句。"""
+
+
+def _parse_batch(raw: str, n: int) -> dict[int, dict]:
+    t = raw.strip()
+    if t.startswith("```"):
+        t = re.sub(r"^```[a-zA-Z]*\s*", "", t)
+        t = re.sub(r"```\s*$", "", t)
+    try:
+        data = json.loads(t.strip())
+    except Exception:
+        return {}
+    out: dict[int, dict] = {}
+    for item in data.get("items", []) or []:
+        try:
+            i = int(item.get("idx", 0)) - 1
+        except (TypeError, ValueError):
+            continue
+        if not (0 <= i < n):
+            continue
+        triples = []
+        for d in item.get("triples", []) or []:
+            a = str(d.get("agent", "")).strip()
+            e = str(d.get("event", "")).strip()
+            r = str(d.get("resource", "")).strip()
+            if a and e and r:
+                triples.append({"agent": a, "event": e, "resource": r})
+        out[i] = {"triples": triples,
+                  "sentence": str(item.get("sentence", "")).strip()}
+    return out
+
+
+def extract_batch(texts: list[str], cfg=None, size: int = 6) -> list[dict]:
+    """一次给模型多段文本，逐段产出。比一条一调快 3-5 倍。
+
+    索引是整个链路最慢的一步：一次检索回来 40 条，一条一调就是 40 次
+    LLM 调用。批量之后 40 条只要 7 次。
+    """
+    cfg = cfg or load_config()
+    results = [{"triples": [], "sentence": ""} for _ in texts]
+    if not available(cfg):
+        return results
+    for start in range(0, len(texts), size):
+        chunk = texts[start:start + size]
+        blocks = "\n\n".join(
+            f"【{i+1}】{t[:900]}" for i, t in enumerate(chunk))
+        raw = complete(BATCH_PROMPT.format(n=len(chunk), blocks=blocks),
+                       system=BATCH_SYSTEM, cfg=cfg)
+        if not raw:
+            continue
+        parsed = _parse_batch(raw, len(chunk))
+        for i, e in parsed.items():
+            results[start + i] = e
+    return results
+
+
 def build(texts: list[tuple[str, str]], cfg=None) -> dict:
     cfg = cfg or load_config()
     idx = load_index()
+    pending: list[str] = []
     for _, text in texts:
         k = _key(text)
         if k in idx:
-            # 旧格式（纯三元组列表）自动升级
             if isinstance(idx[k], list):
                 idx[k] = {"triples": idx[k], "sentence": ""}
             continue
-        idx[k] = extract(text, cfg)
+        if text not in pending:
+            pending.append(text)
+    if pending:
+        new = extract_batch(pending, cfg)
+        for text, e in zip(pending, new):
+            idx[_key(text)] = e
     save_index(idx)
     return idx
 
@@ -164,22 +247,32 @@ def similar(a: str, b: str) -> bool:
 
 
 def rank(nucleus: Nucleus, texts: list[tuple[str, str]],
-         idx: dict | None = None, min_hits: int = 2,
+         idx: dict | None = None, min_hits: int = 1,
          auto_index: bool = True) -> list:
     """在原核和文本的规范化三元组之间做成分匹配。
 
     返回的候选带 sentence —— 那是给用户看的浓缩句，不是原文。
     """
     idx = idx if idx is not None else load_index()
+
     if auto_index:
-        missing = [(s, t) for s, t in texts if _key(t) not in idx]
+        # 先粗筛再索引：只有含原核成分的文本才值得送进模型。
+        # 不筛的话，一次检索 40 条全要索引——每条一次 LLM 调用，
+        # 用户会盯着「正在判断…」等好几分钟。
+        core_terms = [x for x in (nucleus.agent, nucleus.event, nucleus.resource) if x]
+        short_terms = [t for t in core_terms if len(t) >= 1]
+
+        def worth(text: str) -> bool:
+            return any(t in text for t in short_terms)
+
+        missing = [t for _, t in texts
+                   if _key(t) not in idx and worth(t)][:MAX_INDEX_PER_QUERY]
         if missing:
-            cfg = load_config()
+            new = extract_batch(missing, load_config())
             changed = False
-            for _, t in missing:
-                e = extract(t, cfg)
+            for text, e in zip(missing, new):
                 if e["triples"] or e["sentence"]:
-                    idx[_key(t)] = e
+                    idx[_key(text)] = e
                     changed = True
             if changed:
                 save_index(idx)
@@ -188,13 +281,21 @@ def rank(nucleus: Nucleus, texts: list[tuple[str, str]],
     names = ["agent", "event", "resource"]
     out = []
     for src, text in texts:
-        best_hits, best_matched, best_triple = 0, [], None
+        best_hits, best_matched = 0, []
         for t in triples_of(text, idx):
             matched = [core[i] for i in range(len(core))
                        if any(similar(core[i], t[k]) for k in names)]
             if len(matched) > best_hits:
-                best_hits, best_matched, best_triple = len(matched), matched, t
+                best_hits, best_matched = len(matched), matched
+        # 判据是「共享资源（宾语）」，不是「命中两个成分」。
+        # 资源才是识别「这件事是哪件事」的那一格；网页文章里常常只出现
+        # 资源而不出现「我」，按命中数筛会把它们全丢掉——问「要不要喝水」
+        # 时，讲喝水好处的文章就一条都进不来。
         if best_hits < min_hits:
+            continue
+        resource_ok = (not nucleus.resource) or any(
+            similar(nucleus.resource, t["resource"]) for t in triples_of(text, idx))
+        if not resource_ok:
             continue
         sentence = sentence_of(text, idx)
         if not sentence:
