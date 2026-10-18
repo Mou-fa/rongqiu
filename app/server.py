@@ -39,7 +39,8 @@ class SelectedItem(BaseModel):
 class JudgeBody(BaseModel):
     question: str
     binary: str
-    selected: list[SelectedItem]
+    selected: list[SelectedItem]          # 用户认领的全网场景
+    stated: list[SelectedItem] = []       # 用户自述（自动带入）
     assumption: str = ""
     unknown: str = ""
 
@@ -52,33 +53,28 @@ def api_ask(body: AskBody):
     # 组合词展开：聚餐 → 聚会、餐厅、餐饮、饭局…
     # 目的是让整张网都成为候选库，而不是为每个事物建第一接触面数据库。
     terms = search.expand_terms(nu.resource)
-    query = " ".join([nu.agent, nu.event] + terms[:10])
-    results = search.search(query, cfg)
+    query = " ".join(terms[:10])
+    # 每个组合词单独搜，合并去重。塞进一个查询会被搜索引擎截断。
+    results = search.multi_search(terms, event=nu.event, cfg=cfg)
     cands = indexer.rank(nu, results, min_hits=2)
 
     # 系统先用 811 + REA 自己判一次，不要求用户做任何操作。
     # 「这些场景适用于我」本来就是假设槽该装的东西，系统可以自己承担这个假设。
     auto = None
-    # 用户自述的处境，是整条判断里最硬的事实——来源就是当事人本人。
+    # 自动判定只用「用户自述」——那是他自己身上正在发生的事，是最硬的事实。
+    #
+    # 全网找到的内容是【提示】，不是证据：它们是文章、观点、统计，
+    # 属于别人的东西。按原则它们零权重，只作为镜子给用户看，
+    # 用户认领了才升级成事实。
     stated = [review.SceneFact(scene=b.as_text(), source="用户自述",
                                order=i, depth=1, origin=-10 - i)
               for i, b in enumerate(nu.background)]
-    facts = list(stated)
-    facts += [review.SceneFact(scene=c.text, source=c.source,
-                               order=len(stated) + i, depth=1)
-              for i, c in enumerate(cands)]
 
-    if facts:
-        review.direction_of(facts, nu.binary)
-        # 同源归并只作用于全网材料：用户自述的每一条都是独立的处境，
-        # 不能因为「都来自用户」就被归并成一条。
-        web = [f for f in facts if f.source != "用户自述"]
-        mapping = origin.cluster(web) if web else {}
-        for i, f in enumerate(web):
-            f.origin = mapping.get(i, -1)
+    if stated:
+        review.direction_of(stated, nu.binary)
         nd = node.build_from_review(
-            nu.binary, facts,
-            assumption="全网找到的场景适用于我的情况" if web else "",
+            nu.binary, stated,
+            assumption="",
             unknown="我这次的具体情况，以及我还没说出来的约束")
         j = nd.judge()
         if j is not None:
@@ -90,7 +86,7 @@ def api_ask(body: AskBody):
         "nucleus": nu.as_dict(),
         "query": query,
         "terms": terms,
-        "provider": cfg.provider if cfg.api_key else "local",
+        "provider": cfg.provider if (cfg.api_key or cfg.provider in ("sogou", "local")) else "local",
         "candidates": [c.as_dict() for c in cands],
         "stated": [b.as_dict() for b in nu.background],
         "total_hits": len(results),
@@ -100,10 +96,19 @@ def api_ask(body: AskBody):
 
 @app.post("/api/judge")
 def api_judge(body: JudgeBody):
-    facts = [review.SceneFact(scene=s.text, source=s.source, order=i)
-             for i, s in enumerate(body.selected)]
+    facts = [review.SceneFact(scene=s.text, source="用户自述", order=i,
+                              origin=-10 - i)
+             for i, s in enumerate(body.stated)]
+    facts += [review.SceneFact(scene=s.text, source=s.source,
+                               order=len(facts) + i)
+              for i, s in enumerate(body.selected)]
     nu = nucleus.Nucleus(agent="", event="", resource="", binary=body.binary)
     review.direction_of(facts, body.binary)
+    web = [f for f in facts if f.source != "用户自述"]
+    if web:
+        mapping = origin.cluster(web)
+        for i, f in enumerate(web):
+            f.origin = mapping.get(i, -1)
     assumption = body.assumption or "我点选的这几条如实反映了我的情况"
     unknown = body.unknown or "当时是否存在我没考虑到的其他情况"
     nd = node.build_from_review(body.binary, facts, assumption=assumption,

@@ -15,18 +15,15 @@
 
   <section id="step-ask" class="panel">
     <label class="label">你现在要决定什么？</label>
-    <textarea id="question" rows="2" placeholder="例如：我能不能去参加今晚的聚会"></textarea>
+    <textarea id="question" rows="3" placeholder="把你的处境一起说出来，比如：今天身体不舒服，能不能去聚餐？"></textarea>
     <div class="examples">
       <span>试试：</span>
-      <button class="chip" data-q="我能不能去参加今晚的聚会">今晚的聚会去不去</button>
-      <button class="chip" data-q="我应不应该换工作">要不要换工作</button>
-      <button class="chip" data-q="我要不要买这个手机">要不要买手机</button>
-      <button class="chip" data-q="我要不要学英语">要不要学英语</button>
-      <button class="chip" data-q="我要不要去健身房">要不要去健身房</button>
-      <button class="chip" data-q="我要不要接受这个offer">要不要接 offer</button>
+      <button class="chip" data-q="今天身体不舒服，绒球你觉得能不能去聚餐？">身体不舒服，去不去聚餐</button>
+      <button class="chip" data-q="最近很累，我要不要换工作？">很累，要不要换工作</button>
+      <button class="chip" data-q="钱包有点紧，我要不要买这个手机？">钱紧，要不要买手机</button>
     </div>
     <button id="btn-ask" class="primary">开始判断</button>
-    <p class="hint">系统会自动拆解问题、匹配全网同类场景、给出结论。你不需要做任何操作。</p>
+    <p class="hint">你把自己的处境说得越清楚，系统的第一接触面就越多。</p>
   </section>
 
   <section id="step-result" class="panel hidden">
@@ -41,35 +38,11 @@
     </div>
 
     <div class="label" style="margin-top:20px">结构</div>
-    <div class="metrics" id="metrics"></div>
-    <div class="split-line" id="split-line"></div>
+    <div id="structure"></div>
 
-    <div class="label" style="margin-top:20px">依据（全部公开）</div>
-    <ul class="evidence" id="evidence"></ul>
-    <div class="slots" id="slots"></div>
+    <div id="prompts"></div>
 
-    <div class="tiny-ref">
-      <span>系统参考倾向</span>
-      <b id="lean"></b>
-      <span id="conf"></span>
-    </div>
-
-    <div id="refine-bar" class="refine">
-      <span id="refine-note"></span>
-      <button id="btn-refine" class="ghost small">细化判断（可选）</button>
-    </div>
     <button id="btn-again" class="ghost">再问一个</button>
-  </section>
-
-  <section id="step-pick" class="panel hidden">
-    <div class="label">哪些场景真的是你的情况？</div>
-    <p class="hint">系统默认假设<b>全部</b>适用。你点选真正符合的，结论会更准；不选也能看结果。</p>
-    <div id="candidates" class="cands"></div>
-    <div class="bar">
-      <span id="picked-count">已选 0 条</span>
-      <button id="btn-judge" class="primary">重新计算</button>
-    </div>
-    <button id="btn-back" class="ghost">返回</button>
   </section>
 
   <footer>判断是趋近值，不是断言 · 已入档，7 天后可回收结果</footer>

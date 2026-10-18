@@ -17,9 +17,13 @@ Serper、Bing），但都不便宜、也可能随时改协议。绒球不该绑�
 
 from __future__ import annotations
 
+import html as htmlmod
 import json
 import os
+import re
+import ssl
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -31,7 +35,7 @@ CACHE_DIR = ROOT / "data" / "search_cache"
 
 @dataclass
 class SearchConfig:
-    provider: str = "local"
+    provider: str = "sogou"
     base_url_llm: str = "https://api.deepseek.com"
     api_key: str = ""
     max_results: int = 60
@@ -107,7 +111,48 @@ def _serper(query: str, cfg: SearchConfig) -> list[tuple[str, str]]:
             for r in body.get("organic", []) if r.get("snippet")]
 
 
-PROVIDERS = {"tavily": _tavily, "bocha": _bocha, "serper": _serper}
+def _sogou(query: str, cfg: SearchConfig) -> list[tuple[str, str]]:
+    """搜狗网页搜索。不需要 API key。
+
+    为什么用它做默认：这台机器上 Bing 的 HTML 抓取会系统性返回首词字典
+    释义（查询「参加聚会后觉得很累」会返回「参加」的词典条目），Baidu
+    直接返回 1438 字节的被拦页面。搜狗返回的是真实内容，能拿到关于
+    「参加聚会累」的实际文章摘要。
+
+    做法是抓搜索结果页的摘要，不是给每个网页建索引——搜狗已经建好了。
+    """
+    url = "https://www.sogou.com/web?query=" + urllib.parse.quote(query)
+    req = urllib.request.Request(url, headers={
+        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                       "(KHTML, like Gecko) Chrome/122.0 Safari/537.36"),
+        "Accept-Language": "zh-CN,zh;q=0.9",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=cfg.timeout,
+                                    context=ssl.create_default_context()) as resp:
+            html_text = resp.read().decode("utf-8", errors="ignore")
+    except Exception as exc:
+        raise RuntimeError(f"sogou failed: {type(exc).__name__}") from exc
+
+    def strip_tags(s: str) -> str:
+        return htmlmod.unescape(re.sub(r"<[^>]+>", "", s)).strip()
+
+    out: list[tuple[str, str]] = []
+    blocks = re.findall(r'<div class="(?:vrwrap|rb)".*?(?=<div class="(?:vrwrap|rb)"|$)',
+                        html_text, re.S)
+    for block in blocks[:cfg.max_results]:
+        title_m = re.search(r"<h3[^>]*>(.*?)</h3>", block, re.S)
+        paras = [strip_tags(x) for x in re.findall(r"<p[^>]*>(.*?)</p>", block, re.S)]
+        paras = [p for p in paras if len(p) > 15]
+        if not paras:
+            continue
+        title = strip_tags(title_m.group(1)) if title_m else ""
+        body = paras[0]
+        out.append((f"sogou:{title[:40]}" if title else "sogou", body))
+    return out
+
+
+PROVIDERS = {"tavily": _tavily, "bocha": _bocha, "serper": _serper, "sogou": _sogou}
 
 
 def _local(query: str, cfg: SearchConfig) -> list[tuple[str, str]]:
@@ -172,11 +217,41 @@ def expand_terms(resource: str, cfg: SearchConfig | None = None,
         return [resource]
 
 
+def multi_search(terms: list[str], event: str = "",
+                 cfg: SearchConfig | None = None,
+                 per_query: int = 12, max_queries: int = 6,
+                 max_total: int = 40) -> list[tuple[str, str]]:
+    """每个组合词单独搜一次，再合并去重。
+
+    把十个词塞进一个查询，搜索引擎只认前几个。分开搜，每个词各拿到
+    一批结果，覆盖才够——而 N 就是从这里来的。
+    """
+    cfg = cfg or load_config()
+    seen: set[str] = set()
+    out: list[tuple[str, str]] = []
+    for term in terms[:max_queries]:
+        q = (event + term) if event else term
+        try:
+            batch = search(q, cfg, use_cache=True)
+        except Exception:
+            continue
+        for src, text in batch[:per_query]:
+            key = text[:60]
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append((src, text))
+            if len(out) >= max_total:
+                return out
+    return out
+
+
 def search(query: str, cfg: SearchConfig | None = None,
            use_cache: bool = True) -> list[tuple[str, str]]:
     """按原核三元组去搜场景文本。失败返回空列表，绝不抛异常。"""
     cfg = cfg or load_config()
-    if cfg.provider == "local" or not cfg.api_key:
+    # sogou 不需要 key；其余 API provider 没 key 时退回本地语料
+    if cfg.provider not in ("sogou", "local") and not cfg.api_key:
         return _local(query, cfg)
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -193,7 +268,7 @@ def search(query: str, cfg: SearchConfig | None = None,
     try:
         results = fn(query, cfg)
     except RuntimeError:
-        return []
+        return _local(query, cfg) if cfg.provider != "local" else []
     try:
         cache_file.write_text(json.dumps(results, ensure_ascii=False), encoding="utf-8")
     except Exception:
