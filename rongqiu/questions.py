@@ -16,6 +16,20 @@ from pathlib import Path
 
 import yaml
 
+from .triples import SUPPORT, OPPOSE
+
+# 二元对立。所有主动询问只能回答 yes 或 no。
+#
+# 用户点 yes → 这是一个「确定性第一接触面」
+# 用户点 no  → 这是一个「否定性第一接触面」
+#
+# 方向由用户的一次点击直接决定，不经过模型判断。
+# 这是主动询问和全网场景最大的区别：全网场景的方向要模型猜，
+# 主动询问的方向是用户自己给的——所以它更硬。
+YES, NO = "yes", "no"
+DIRECTION = {YES: SUPPORT, NO: OPPOSE}
+ANSWER_LABEL = {YES: "是", NO: "否"}
+
 ROOT = Path(__file__).resolve().parents[1]
 QUESTIONS_PATH = ROOT / "configs" / "questions.yaml"
 
@@ -81,3 +95,41 @@ def render(question: dict, nucleus) -> dict:
 
 def for_nucleus(nucleus, has_history: bool = False) -> list[dict]:
     return [render(q, nucleus) for q in pick(nucleus, has_history)]
+
+
+def surface_quota() -> int:
+    """固定询问面的总数 = 问题库的词条数。
+
+    这个数会随着问题库增删而变化。代码里任何地方都不许写死它，
+    必须每次都从库里读——否则加了词条，面数不变，811 的账就错了。
+    """
+    return len(load())
+
+
+def answers_to_facts(answers: list, order_start: int = 0) -> list:
+    """把 yes/no 回答转成事实。
+
+    answers: [{"id": ..., "answer": "yes"|"no"}, ...]
+    yes → 确定性面（support），no → 否定性面（oppose）。
+
+    方向不走模型，所以这些事实不需要（也不应该）再被 direction_of 判一遍——
+    否则用户点的 yes 会被模型改成别的。
+    """
+    from .triples import SceneFact
+
+    bank = {q["id"]: q for q in load()}
+    facts = []
+    for a in answers:
+        qid = a.get("id") if isinstance(a, dict) else getattr(a, "id", "")
+        ans = a.get("answer") if isinstance(a, dict) else getattr(a, "answer", "")
+        if ans not in (YES, NO) or qid not in bank:
+            continue
+        q = bank[qid]
+        facts.append(SceneFact(
+            scene=f"{q['text']}（答：{ANSWER_LABEL[ans]}）",
+            supports=DIRECTION[ans],
+            source="主动询问",
+            order=order_start + len(facts),
+            depth=1,
+        ))
+    return facts

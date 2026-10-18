@@ -36,11 +36,17 @@ class SelectedItem(BaseModel):
     source: str = "web"
 
 
+class AnswerItem(BaseModel):
+    id: str
+    answer: str = ""      # "yes" | "no"
+
+
 class JudgeBody(BaseModel):
     question: str
     binary: str
-    selected: list[SelectedItem]          # 用户认领的全网场景
+    selected: list[SelectedItem] = []     # 用户认领的全网场景
     stated: list[SelectedItem] = []       # 用户自述（自动带入）
+    answers: list[AnswerItem] = []        # 主动询问的 yes/no 回答
     assumption: str = ""
     unknown: str = ""
 
@@ -96,20 +102,30 @@ def api_ask(body: AskBody):
         # 主动询问：问句来自 configs/questions.yaml，由用户确定，系统不发明。
         # 只问「发生过的、能被看见的」——不问为什么。
         "questions": questions.for_nucleus(nu, has_history=bool(journal.load())),
+        # 固定询问面总数：等于问题库的词条数。用户加词条它就变，代码不写死。
+        "surface_quota": questions.surface_quota(),
     }
 
 
 @app.post("/api/judge")
 def api_judge(body: JudgeBody):
-    facts = [review.SceneFact(scene=s.text, source="用户自述", order=i,
-                              origin=-10 - i)
-             for i, s in enumerate(body.stated)]
-    facts += [review.SceneFact(scene=s.text, source=s.source,
-                               order=len(facts) + i)
-              for i, s in enumerate(body.selected)]
+    # 主动询问的 yes/no 回答：方向由用户点击直接决定，不经过模型。
+    # 必须单独建、单独放，不能混进 direction_of——否则用户点的 yes
+    # 会被模型重新判一遍，可能改成中性甚至反对。
+    qa_facts = questions.answers_to_facts([a.model_dump() for a in body.answers])
+
+    others = [review.SceneFact(scene=s.text, source="用户自述", order=i,
+                               origin=-10 - i)
+              for i, s in enumerate(body.stated)]
+    others += [review.SceneFact(scene=s.text, source=s.source,
+                                order=len(others) + i)
+               for i, s in enumerate(body.selected)]
+    if others:
+        review.direction_of(others, body.binary)
+
+    facts = qa_facts + others
     nu = nucleus.Nucleus(agent="", event="", resource="", binary=body.binary)
-    review.direction_of(facts, body.binary)
-    web = [f for f in facts if f.source != "用户自述"]
+    web = [f for f in facts if f.source not in ("用户自述", "主动询问")]
     if web:
         mapping = origin.cluster(web)
         for i, f in enumerate(web):
@@ -118,6 +134,8 @@ def api_judge(body: JudgeBody):
         assumption = body.assumption
     elif body.selected:
         assumption = "我点选的这几条如实反映了我的情况"
+    elif qa_facts or others:
+        assumption = "我回答的和我说出的，就是这次判断的全部依据"
     else:
         assumption = "全网场景都不适用于我，只看我自己说出的处境"
     unknown = body.unknown or "当时是否存在我没考虑到的其他情况"
