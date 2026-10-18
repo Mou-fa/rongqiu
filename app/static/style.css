@@ -138,7 +138,7 @@ button.ghost {
 .lean { font-size: 30px; font-weight: 600; letter-spacing: 2px; }
 .conf { font-size: 13.5px; color: var(--ink-2); margin-top: 5px; }
 
-.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 18px; }
+.metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-top: 18px; }
 .metric { background: #fcfbf8; border: 1px solid var(--line); border-radius: 10px; padding: 11px; text-align: center; }
 .metric .k { font-size: 11.5px; color: var(--ink-3); }
 .metric .v { font-size: 18px; font-weight: 600; margin-top: 2px; }
@@ -170,7 +170,7 @@ footer { text-align: center; color: var(--ink-3); font-size: 12px; margin-top: 2
 .refine span { font-size: 12.5px; color: var(--ink-2); flex: 1; min-width: 160px; }
 button.ghost.small { width: auto; margin: 0; padding: 8px 16px; font-size: 13px; }
 /* ---- 标签页 ---- */
-.tabs { display: grid; grid-template-columns: repeat(3, 1fr);
+.tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px; margin-bottom: 14px; width: 100%; }
 .tabs button {
   min-width: 0; width: 100%; background: transparent; border: 1px solid var(--line);
@@ -241,7 +241,7 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
   background: #fff; }
 .askbar { margin-top: 9px; display: flex; justify-content: flex-end; }
 .surfquota { font-size: 12px; color: var(--ink-3); margin: 22px 0 8px; }
-.yn { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.yn { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; margin-top: 4px; }
 .ynbtn { padding: 10px 0; border-radius: 9px; border: 1px solid var(--line);
   background: #fff; color: var(--ink-2); font-size: 14px; cursor: pointer; }
 .ynbtn.yes.on { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -267,7 +267,7 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
   align-items: start;
 }
 .main { min-width: 0; }
-.aside { align-self: start; position: sticky; top: 24px; }
+.aside { align-self: start; position: sticky; top: 24px; min-width: 0; }
 
 /* 便签：纸的感觉，轻微倾斜，顶部一条胶带 */
 .note {
@@ -313,7 +313,10 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
 
 /* 窄屏：便签变成顶部一条横向信息条，不再倾斜 */
 @media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; gap: 14px; }
+  /* 必须用 minmax(0, 1fr)，不能写 1fr。
+     1fr 的 minmax 下界是 auto，会被最宽的子元素撑开——
+     手机上一整页就这么被撑宽，右边内容全被切掉。 */
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .aside { position: static; order: 2; }   /* 窄屏时便签放到整页最后，不能跑到 logo 上面 */
   .note { transform: none; padding: 12px 14px; }
   .note-tape { display: none; }
@@ -358,3 +361,60 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
   cursor: pointer;
 }
 .bar .bar-btn:hover { color: var(--ink-2); border-color: #d5d0c4; }
+/* ---- 窄屏：结论独占一行，不能被挤掉 ---- */
+@media (max-width: 620px) {
+  /* 窄屏三段竖排：结论 / 说明 / 按钮，谁也不抢谁的位置。
+     第一版把它们塞在一行，结果结论被压缩裁掉、按钮被挤出屏幕。 */
+  .bar { flex-wrap: wrap; row-gap: 8px; gap: 0; }
+  .bar-verdict {
+    order: -1; flex: 0 0 100%;
+    justify-content: flex-start; text-align: left;
+    overflow: visible; white-space: normal;
+  }
+  .bar-verdict b { font-size: 21px; }
+  .bar #picked-count {
+    order: 1; flex: 0 0 100%; max-width: 100%;
+    font-size: 11px; white-space: normal;
+  }
+  .bar .bar-btn { order: 2; margin-left: auto; flex: 0 0 auto; }
+}
+/* ---- 结论独立块：不参与操作行的 flex 竞争 ---- */
+.verdict-block {
+  margin-top: 18px; text-align: right; line-height: 1.4;
+}
+.verdict-block:empty { margin-top: 0; }
+.verdict-block b { font-size: 19px; font-weight: 800; letter-spacing: .5px; }
+.verdict-block .vconf { font-size: 11.5px; color: var(--ink-3); margin-left: 9px; }
+
+@media (max-width: 620px) {
+  .verdict-block { text-align: left; margin-top: 16px; }
+  .verdict-block b { font-size: 22px; }
+  .verdict-block .vconf { font-size: 12px; margin-left: 8px; }
+}
+/* ---- 手机端硬保险：不用 grid，全部块级，宽度钉死视口 ---- */
+@media (max-width: 900px) {
+  html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
+  .shell { width: 100%; max-width: 100%; }
+  /* 手机上不用 grid：grid 的 min-content 会把页面撑宽 */
+  .layout { display: block; }
+  .main, .aside { width: 100%; min-width: 0; }
+  .panel { width: 100%; max-width: 100%; }
+  .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* 长串文字强制换行，不许撑开 */
+  .svo, .evidence li, .slot, .split-line, .dropline, .cand .txt, .qtxt {
+    overflow-wrap: anywhere; word-break: break-word;
+  }
+}
+/* ---- 手机端：布局用块级，避免 grid 的 min-content 撑宽 ---- */
+@media (max-width: 900px) {
+  html, body { max-width: 100%; overflow-x: hidden; }
+  .layout { display: block; }
+  .main, .aside { width: 100%; min-width: 0; }
+  .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* 长串文字强制换行，不许撑开容器 */
+  .svo, .evidence li, .slot, .split-line, .dropline, .cand .txt, .qtxt {
+    overflow-wrap: anywhere; word-break: break-word;
+  }
+}

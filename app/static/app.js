@@ -261,8 +261,6 @@ function updateVerdict() {
   }
   const yes = j.lean === "yes";
   // 结论是主角，按钮是配角。
-  // 结果已经自动算出来了，视觉重心就应该压在结果上，
-  // 而不是让一个操作按钮比结论还抢眼。
   el.innerHTML =
     '<b style="color:' + (yes ? "var(--accent)" : "var(--warn)") + '">' +
     (yes ? "更可能是：会" : "更可能是：不会") + '</b>' +
@@ -277,9 +275,11 @@ function renderPrompts() {
     '<p class="hint">从全网找到的原文，已浓缩成一句话。本身不算证据，' +
     '点选真正符合你的，才加入判断。</p>' +
     '<div class="cands" id="cand-list"></div>' +
+    // 结论独立成块，不放在操作行里。
+    // 放在 flex 行里时，窄屏下它会被压缩裁掉、按钮会被挤出屏幕。
+    '<div id="verdict" class="verdict-block"></div>' +
     '<div class="bar">' +
       '<span id="picked-count">已选 0 条</span>' +
-      '<span id="verdict" class="bar-verdict"></span>' +
       '<button id="btn-judge" class="bar-btn">加入判断</button>' +
     '</div>' +
     '<div id="judge-note" class="judge-note hidden"></div>';
