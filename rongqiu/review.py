@@ -16,17 +16,34 @@ from __future__ import annotations
 from .llm import available, complete, load_config
 from .triples import SceneFact, SUPPORT, OPPOSE, NEUTRAL
 
-DIRECTION_SYSTEM = """你是一个场景倾向判定器。
+DIRECTION_SYSTEM = """你是「绒球」的方向判定器。
 
-给定一个原核（一个「是否会发生」的判断）和若干场景，判断每个场景
-是让原核更可能成立、还是更不可能成立。
+给定一个原核（「某件事会不会发生」）和一组场景，判断每个场景让这件事
+**真的发生**的可能性升高（support）还是降低（oppose）。
 
-只输出 JSON，形如：
-{"items": [{"index": 0, "supports": "support|oppose|neutral"}]}
+【最关键的一条：判「会不会做」，不判「想不想做」】
 
-判断依据：场景描述的是「会发生」的好处/便利 → support；
-描述的是「会发生」的阻碍/代价 → oppose；中性描述 → neutral。
-不要考虑这个场景是否适用于用户——那是用户自己回答的问题。"""
+一个场景完全可能让用户「更想」做某件事，同时让他「更不可能」真的去做。
+最典型的就是疲惫：
+    累 → 更想逃离现状（意愿上升）
+    累 → 没有精力投简历、面试、搬家（行动下降）
+原核问的是「会不会」，所以疲惫这一类应当判 oppose。
+
+每判一条之前，先写一句理由，然后才给标签。理由必须回答那个问题：
+**如果这件事是真的，这个人真正采取行动的可能性是升还是降？**
+
+【常见判法】
+- 已经在行动（投了简历、看了招聘、攒了钱）→ support
+- 有推力（公司搬迁、被边缘化、关系破裂）→ support
+- 有能力承担后果（有存款、有退路、有下家）→ support
+- 有先例（过去反复做过同类决定）→ support
+- 现状可接受、没有推力 → oppose
+- 身体或时间上不允许（生病、要早起、太累）→ oppose
+
+【硬约束】不允许 neutral。每一条必须在 support 和 oppose 里选一个。
+
+只输出 JSON：
+{"items": [{"index": 0, "reason": "一句方向理由", "supports": "support|oppose"}]}"""
 
 
 def select(candidates, selected: list[int] | None = None) -> tuple[list, list]:
@@ -171,10 +188,10 @@ def _force_once(pending, scenes, nucleus_binary, cfg, strict=False):
 
 def _direction_once(scenes: list[SceneFact], nucleus_binary: str, cfg) -> list[SceneFact]:
     lines = "\n".join(f"{i}. {s.scene}" for i, s in enumerate(scenes))
-    prompt = (f"【原核】{nucleus_binary}，这件事会成立吗？\n\n"
+    prompt = (f"【原核】{nucleus_binary}\n\n"
               f"【场景】\n{lines}\n\n"
-              "判断每个场景让原核更可能成立（support）、更不可能成立（oppose）、"
-              "还是中性（neutral）。只输出 JSON。")
+              "逐条判断：如果这条是真的，原核「真的发生」的可能性升高还是降低？"
+              "先写一句理由，再给 support 或 oppose。只输出 JSON。")
     raw = complete(prompt, system=DIRECTION_SYSTEM, cfg=cfg)
     if not raw:
         for s in scenes:
