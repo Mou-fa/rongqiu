@@ -430,21 +430,9 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
 }
 .detail-toggle:hover { color: var(--ink-2); }
 .detail-block { padding-top: 4px; }
-/* ---- 依据：五条原理 ---- */
+/* ---- 依据：一行 ---- */
 .basis-block { margin-top: 22px; }
-.basis { list-style: none; margin: 0; padding: 0; }
-.basis li {
-  display: flex; align-items: baseline; gap: 14px; padding: 9px 0;
-  border-bottom: 1px dashed var(--line);
-  font-size: 12.8px; line-height: 1.5;
-}
-.basis li:last-child { border-bottom: none; }
-.basis b {
-  flex: 0 0 100px; font-weight: 700; color: var(--ink-2);
-  font-size: 12.8px; letter-spacing: .2px; white-space: nowrap;
-}
-.basis span { flex: 1; min-width: 0; color: var(--ink-3); }
-@media (max-width: 620px) {
-  .basis li { flex-direction: column; gap: 3px; }
-  .basis b { flex: none; }
+.basis {
+  font-size: 13px; color: var(--ink-2); letter-spacing: .3px;
+  line-height: 1.7; padding: 4px 0;
 }
