@@ -1,6 +1,6 @@
 const $ = (s) => document.querySelector(s);
 let STATE = { nucleus: null, candidates: [], picked: new Set(), auto: null,
-              stated: [], env: [], coords: null };
+              stated: [], env: [], coords: null, engaged: false };
 
 // 上次授权过的坐标记在本地，不用每次都问
 try {
@@ -45,6 +45,7 @@ async function ask() {
     STATE.auto = d.auto;
     STATE.stated = d.stated || [];
     STATE.picked = new Set();
+    STATE.engaged = false;   // 用户还没有任何输入，先不给倾向
     STATE.query = q;
     STATE.questions = d.questions || [];
     STATE.quota = d.surface_quota || (d.questions || []).length;
@@ -239,10 +240,15 @@ function renderStructure(j) {
       : '') +
     (j.assumption ? '<div class="slots"><div class="slot"><b>假设</b>　' + esc(j.assumption) + '</div></div>' : '') +
     (j.unknown ? '<div class="slots"><div class="slot"><b>未知</b>　' + esc(j.unknown) + '</div></div>' : '') +
-    '<div class="tiny-ref"><span>系统参考倾向</span>' +
-    '<b style="color:' + (j.lean === "yes" ? "var(--accent)" : "var(--warn)") + '">' +
-    (j.lean === "yes" ? "更可能是：会" : "更可能是：不会") + '</b>' +
-    '<span>置信 ' + (j.confidence * 100).toFixed(0) + '%</span></div>';
+    // 倾向只在用户真的动过之后才出现。
+    // 测试还没开始就给出「更可能是：不会 置信 33%」，会被读成结论——
+    // 那会误导人，以为系统已经判完了。所以首次显示为空。
+    (STATE.engaged
+      ? '<div class="tiny-ref"><span>系统参考倾向</span>' +
+        '<b style="color:' + (j.lean === "yes" ? "var(--accent)" : "var(--warn)") + '">' +
+        (j.lean === "yes" ? "更可能是：会" : "更可能是：不会") + '</b>' +
+        '<span>置信 ' + (j.confidence * 100).toFixed(0) + '%</span></div>'
+      : '');
 }
 
 function renderPrompts() {
@@ -296,6 +302,7 @@ function metric(k, v) {
 }
 
 async function judgeAgain() {
+  STATE.engaged = true;      // 用户动过了，此后才显示倾向
   const selected = [...STATE.picked].sort((a, b) => a - b)
     .map(i => ({ text: STATE.candidates[i].text, source: STATE.candidates[i].source }));
   const stated = STATE.stated.map(b => ({

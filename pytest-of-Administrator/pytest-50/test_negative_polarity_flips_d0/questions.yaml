@@ -1,4 +1,0 @@
-questions:
-  - id: still_waiting
-    text: 这件事你已经反复想了一阵子，是吗？
-    polarity: negative
