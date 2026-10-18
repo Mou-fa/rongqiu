@@ -123,6 +123,7 @@ def build(question: str, extraction, trace_mod, include_assumptions: bool = Fals
     设为 True 时，L1/L2 的事实也参与投票，但在输出里标出来——用于对比
     「严格溯源」和「宽松溯源」两种判定的差别。
     """
+    trace_mod.apply(extraction.facts)      # 等级由 build 统一负责，调用方不用记
     facts, assume_extra, unknown_extra = [], [], []
     n_agents, n_sources = trace_mod.independence_pool(extraction.facts)
     independent = require_independence and max(n_agents, n_sources) >= 2

@@ -31,7 +31,7 @@ class LLMConfig:
     api_key: str = ""
     timeout: float = 60.0
     max_tokens: int = 1600
-    temperature: float = 0.1
+    temperature: float = 0.0     # 同一个问题两次判定必须一致，先压住随机性
 
 
 def _parse_yaml(text: str) -> dict:
