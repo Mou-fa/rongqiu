@@ -63,12 +63,29 @@ def main() -> int:
     ex = extract.consensus(nu, texts, runs=3, min_freq=0.6)
     print(f"   保留 {len(ex.facts)} 条稳定事实\n")
 
-    print("④ N11 判定")
+    print("④ 分槽：结构共享的进确定槽，其余全部进 11")
+    report: list = []
+    nd_pre = node.build(nu.binary, ex, trace, nucleus_resource=nu.resource_norm,
+                        report=report)
+    for r in report:
+        label = "确定槽" if r.slot == "confirmed" else f"11({r.slot})"
+        mark = {"support": "+", "oppose": "-"}.get(r.supports, "0")
+        print(f"   {label:16s} [{r.grade}] {mark} {r.text}"
+              f"   {r.reason}  shares={r.shares or '无'}")
+    print()
+
+    print("⑤ N11 判定")
     tb_lean, tb_reason = extract.tie_break_of(nu.binary, texts)
-    nd = node.build(nu.binary, ex, trace)
+    nd = nd_pre
+    print(f"   实际进入节点的事实：{len(nd.facts)} 条"
+          f"（其中带方向 {nd.n} 条）")
+    for f in nd.facts:
+        print(f"     · {f.as_text()}  supports={f.supports}  grade={f.grade}")
+    print()
     j = nd.judge(tie_break_lean=tb_lean, tie_break_reason=tb_reason)
     if j is None:
-        print("   节点不成立")
+        print("   节点不成立：没有任何结构相关的方向证据。")
+        print("   这不是 bug——这个问题的答案，从结构上就没有证据支撑。")
         return 1
     print("-" * 64)
     print(j.render())

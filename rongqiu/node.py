@@ -116,8 +116,21 @@ class Node:
         )
 
 
+@dataclass
+class SlotReport:
+    """一条事实的去向。展示层必须用这个，不能自己另算一套判据——
+    第一版就是两套判据不一致，界面上显示两条进了确定槽，实际进入节点的是零条。"""
+    text: str
+    slot: str          # confirmed / assumption / unknown / dropped
+    reason: str
+    supports: str
+    grade: str
+    shares: str
+
+
 def build(question: str, extraction, trace_mod, include_assumptions: bool = False,
-          require_independence: bool = True) -> Node:
+          require_independence: bool = True, nucleus_resource: str = "",
+          report: list | None = None) -> Node:
     """把一次抽取组织成 N11 节点。
 
     include_assumptions=False 时只让溯源通过的进确定槽（严格按 811）。
@@ -130,12 +143,23 @@ def build(question: str, extraction, trace_mod, include_assumptions: bool = Fals
     independent = require_independence and max(n_agents, n_sources) >= 2
     for t in extraction.facts:
         slot = trace_mod.classify(t, pool_independent=independent)
+        reason = ""
         if slot == "confirmed":
-            facts.append(t)
+            if not (t.structurally_relevant() or t.same_resource(nucleus_resource)):
+                slot = "assumption"
+                reason = "非结构相关"
+                assume_extra.append(f"{t.as_text()}（非结构相关）")
+            else:
+                reason = f"结构共享：{t.shares or 'norm'}"
+                facts.append(t)
         elif slot == "assumption":
             if include_assumptions:
                 facts.append(t)
             assume_extra.append(t.as_text())
+        if report is not None:
+            report.append(SlotReport(text=t.as_text(), slot=slot, reason=reason,
+                                     supports=t.supports, grade=t.grade,
+                                     shares=t.shares))
 
     assumption = extraction.assumption
     if assume_extra:

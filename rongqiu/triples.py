@@ -38,6 +38,8 @@ class Triple:
     grade: str = "L1"
     evidence: str = ""
     frequency: float = 1.0   # 共识抽取里这条事实出现的频率，1.0 表示每次都抽到
+    shares: str = ""         # 与原核共享哪几格，逗号分隔：resource,agent,event
+    resource_norm: str = ""  # 资源的规范化名称，用于跨表述做实体归一化
 
     def complete(self) -> bool:
         """REA 三元组是否填满。填不满的不是接触点，只是相关。"""
@@ -46,6 +48,30 @@ class Triple:
     def is_fact(self) -> bool:
         """只有确认发生、且三元组完整的，才能进确定槽。"""
         return self.complete() and self.polarity == POLARITY_AFFIRM
+
+    def same_resource(self, norm: str) -> bool:
+        """两个资源是否是同一个实体（按规范化名比较）。"""
+        a, b = self.resource_norm.strip(), (norm or "").strip()
+        return bool(a) and bool(b) and a == b
+
+    def structurally_relevant(self) -> bool:
+        """是否与原核结构共享。
+
+        相关性的唯一判据。时间冲突、因果关联、间接影响都不算——
+        主谓宾提取本来就把时间和状语剥掉了，所以那三类永远不可能
+        出现在结构里。它们属于 11（假设槽/未知槽），不属于确定槽。
+
+        关键是**共享哪一格**：
+          共享宾语（资源）  → 相关。资源是识别「这件事是哪件事」的那一格。
+          只共享谓语        → 不相关。「参加」「说」「买」这类动词到处都是，
+                             只靠动词匹配等于没匹配。
+          只共享主语        → 不相关。「我」同样到处都是。
+          资源缺失时才退而看「主语+谓语」同时共享。
+        """
+        parts = {p.strip() for p in self.shares.split(",") if p.strip()}
+        if "resource" in parts:
+            return True
+        return "resource" not in parts and {"agent", "event"} <= parts
 
     def as_text(self) -> str:
         return f"{self.agent} {self.event} {self.resource}"
@@ -56,7 +82,7 @@ class Triple:
             "time": self.time, "polarity": self.polarity, "supports": self.supports,
             "source": self.source, "grade": self.grade, "evidence": self.evidence,
             "complete": self.complete(), "is_fact": self.is_fact(),
-            "frequency": self.frequency,
+            "frequency": self.frequency, "shares": self.shares,
         }
 
 

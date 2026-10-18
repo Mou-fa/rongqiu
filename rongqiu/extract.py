@@ -55,8 +55,21 @@ PROMPT = """【原核】（用户问题的规范化三元组）
 【原核的二元问题】
 {binary}
 
-判断相关性的唯一标准：一条事件只要和上面三元组共享**代理或资源**，
-就是候选接触面；两者都不共享的，即使话题相近也丢弃。
+判断「结构共享」时，看的是共享**哪一格**，不是共享了几格：
+
+- 共享**宾语（资源）** → 相关。资源是识别「这件事是哪件事」的那一格。
+- 只共享**谓语（事件）** → 不相关。「参加」「说」「买」这类动词到处都是，
+  光靠动词匹配等于没匹配。
+- 只共享**主语（代理）** → 不相关。「我」同样到处都是。
+- 只有当原核没有资源、无法按资源匹配时，才改看「主语 + 谓语」是否同时共享。
+
+在 shares 字段里列出共享的格，逗号分隔，例如 "resource" 或 "agent,event"。
+一格都不共享就写 "none"。
+
+注意：时间、地点、数量、原因、结果这些**都不是结构共享**。
+主谓宾提取本来就把状语和虚词剥掉了。一件和原核时间冲突、或因果相关、
+或间接影响的事，如果结构上不共享任何一格，它**不是确定槽的证据**，
+它属于假设槽——必须明确写成「我假设了什么」。
 
 【文本】（来源：{source}）
 {text}
@@ -67,6 +80,9 @@ PROMPT = """【原核】（用户问题的规范化三元组）
     {{"agent": "", "event": "", "resource": "", "time": "",
       "polarity": "affirm|negate|hypothetical",
       "supports": "support|oppose|neutral",
+      "resource_norm": "资源的规范化名称。去掉时间、地点、修饰语，只留最通用的名词短语。
+                        例：「周五晚上的聚会」→「聚会」，「今晚的北京之旅」→「北京之旅」",
+      "shares": "列出共享的格，逗号分隔：resource / agent,event / none",
       "evidence": "原文里的依据"}}
   ],
   "assumption": "",
@@ -95,10 +111,16 @@ def _to_triple(d: dict, source: str) -> Triple | None:
     supports = str(d.get("supports", NEUTRAL)).strip().lower()
     if supports not in (SUPPORT, OPPOSE, NEUTRAL):
         supports = NEUTRAL
+    shares = str(d.get("shares", "")).strip().lower().replace(" ", "")
+    if shares == "none":
+        shares = ""
+    valid = {"agent", "event", "resource"}
+    shares = ",".join(sorted({p for p in shares.split(",") if p in valid}))
     return Triple(
         agent=agent, event=event, resource=resource,
         time=str(d.get("time", "")).strip(),
-        polarity=polarity, supports=supports,
+        polarity=polarity, supports=supports, shares=shares,
+        resource_norm=str(d.get("resource_norm", "")).strip(),
         source=source, evidence=str(d.get("evidence", "")).strip(),
     )
 

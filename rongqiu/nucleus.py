@@ -48,6 +48,7 @@ PROMPT = """用户问题：{question}
   "event": "",
   "resource": "",
   "binary": "把三元组写成一个陈述句，判定时问它是否成立",
+  "resource_norm": "资源的规范化名称，去掉时间和修饰语，只留最通用的名词短语",
   "clarify": "若某格填不出，写需要用户补充什么；否则留空"
 }}"""
 
@@ -60,6 +61,7 @@ class Nucleus:
     binary: str
     raw_question: str = ""
     clarify: str = ""
+    resource_norm: str = ""
 
     def complete(self) -> bool:
         return all(str(x).strip() for x in (self.agent, self.event, self.resource))
@@ -104,7 +106,8 @@ def parse(question: str, cfg=None) -> Nucleus:
     resource = str(d.get("resource", "")).strip()
     binary = str(d.get("binary", "")).strip() or f"{agent}{event}{resource}"
     return Nucleus(agent=agent, event=event, resource=resource, binary=binary,
-                   raw_question=question, clarify=str(d.get("clarify", "")).strip())
+                   raw_question=question, clarify=str(d.get("clarify", "")).strip(),
+                   resource_norm=str(d.get("resource_norm", "")).strip())
 
 
 # ---------------------------------------------------------------- 语音输入
