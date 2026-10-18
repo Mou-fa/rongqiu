@@ -37,6 +37,7 @@ class Triple:
     source: str = ""
     grade: str = "L1"
     evidence: str = ""
+    frequency: float = 1.0   # 共识抽取里这条事实出现的频率，1.0 表示每次都抽到
 
     def complete(self) -> bool:
         """REA 三元组是否填满。填不满的不是接触点，只是相关。"""
@@ -55,6 +56,7 @@ class Triple:
             "time": self.time, "polarity": self.polarity, "supports": self.supports,
             "source": self.source, "grade": self.grade, "evidence": self.evidence,
             "complete": self.complete(), "is_fact": self.is_fact(),
+            "frequency": self.frequency,
         }
 
 

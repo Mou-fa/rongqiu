@@ -59,7 +59,8 @@ class Judgment:
         ]
         for f in self.facts:
             mark = "+" if f.supports == SUPPORT else ("-" if f.supports == OPPOSE else "0")
-            lines.append(f"  [{f.grade}] {mark} {f.as_text()}  （{f.source}）")
+            freq = f" {f.frequency:.0%}" if f.frequency < 1.0 else ""
+            lines.append(f"  [{f.grade}] {mark} {f.as_text()}  （{f.source}{freq}）")
         if self.assumption:
             lines.append(f"假设槽：{self.assumption}")
         if self.unknown:

@@ -35,7 +35,12 @@ def _parse_texts(items: list[str]) -> list[tuple[str, str]]:
 
 def cmd_judge(args) -> int:
     texts = _parse_texts(args.text)
-    ex = extract.extract(args.question, texts)
+    if args.runs > 1:
+        ex = extract.consensus(args.question, texts, runs=args.runs, min_freq=args.min_freq)
+        print(f"共识抽取：{args.runs} 次，保留 {len(ex.facts)} 条稳定事实"
+              f"（门槛 {args.min_freq:.0%}）\n")
+    else:
+        ex = extract.extract(args.question, texts)
     tb_lean, tb_reason = extract.tie_break_of(args.question, texts)
     nd = node.build(args.question, ex, trace)
     j = nd.judge(tie_break_lean=tb_lean, tie_break_reason=tb_reason)
@@ -105,6 +110,10 @@ def main(argv=None) -> int:
     p.add_argument("--question", required=True)
     p.add_argument("--text", action="append", required=True, help="来源|内容")
     p.add_argument("--resolve-days", type=int, default=7)
+    p.add_argument("--runs", type=int, default=3,
+                   help="共识抽取次数。1 = 单次（快但不稳），3 = 默认")
+    p.add_argument("--min-freq", type=float, default=0.6,
+                   help="事实在多少次抽取里出现才算稳定")
     p.set_defaults(func=cmd_judge)
 
     p = sub.add_parser("pending", help="到期未回收的判断")

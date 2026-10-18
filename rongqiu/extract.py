@@ -136,6 +136,55 @@ def extract(question: str, texts: list[tuple[str, str]],
     return out
 
 
+def _norm(t: Triple) -> str:
+    return f"{t.agent.strip()}|{t.event.strip()}|{t.resource.strip()}"
+
+
+def consensus(question: str, texts: list[tuple[str, str]], runs: int = 5,
+              min_freq: float = 0.6, cfg=None) -> Extraction:
+    """共识抽取：同一个问题抽 K 次，只保留足够稳定的事实。
+
+    LLM 抽取有随机性。第一次一致性测试里，同一个会议被抽成四种形态，
+    其中三种各只出现 1-2 次，却都能算成反对票——于是支持率在 40% 和
+    67% 之间摇摆，结论跟着翻。
+
+    频率本身就是可靠性信号：每次都抽到的事实，比时有时无的事实可信。
+    这里把频率记在 Triple.frequency 上，下游可以据此加权或过滤。
+    """
+    cfg = cfg or load_config()
+    counts: dict[str, int] = {}
+    exemplar: dict[str, Triple] = {}
+    merged_meta = {"assumption": "", "unknown": ""}
+
+    for _ in range(runs):
+        ex = extract(question, texts, cfg=cfg)
+        for t in ex.facts:
+            key = _norm(t)
+            counts[key] = counts.get(key, 0) + 1
+            if key not in exemplar:
+                exemplar[key] = t
+        if not merged_meta["assumption"] and ex.assumption:
+            merged_meta["assumption"] = ex.assumption
+        if not merged_meta["unknown"] and ex.unknown:
+            merged_meta["unknown"] = ex.unknown
+
+    kept: list[Triple] = []
+    for key, c in counts.items():
+        freq = c / runs
+        if freq < min_freq:
+            continue
+        t = exemplar[key]
+        t.frequency = round(freq, 3)
+        kept.append(t)
+
+    out = Extraction(question=question, model=cfg.model)
+    out.facts = kept
+    out.assumption = merged_meta["assumption"]
+    out.unknown = merged_meta["unknown"]
+    out.raw = f"consensus over {runs} runs, kept {len(kept)}/{len(counts)}"
+    return out
+
+
 def tie_break_of(question: str, texts: list[tuple[str, str]], cfg=None) -> tuple[str, str]:
     """平票时，用 11（假设 + 未知）决定方向。
 
