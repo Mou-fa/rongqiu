@@ -97,6 +97,14 @@ button.ghost {
 .bar span { font-size: 13px; color: var(--ink-2); white-space: nowrap; }
 .bar button { width: auto; padding: 11px 26px; }
 
+.stated { margin-top: 16px; background: #fff8ec; border: 1px solid #f0e2c8;
+  border-radius: 10px; padding: 12px 14px; }
+.stated .item { font-size: 13.5px; line-height: 1.6; }
+
+.tiny-ref { margin-top: 18px; display: flex; align-items: baseline; gap: 8px;
+  justify-content: center; color: var(--ink-3); font-size: 12.5px;
+  border-top: 1px dashed var(--line); padding-top: 12px; }
+.tiny-ref b { font-size: 14px; font-weight: 600; color: var(--ink-2); }
 .verdict { text-align: center; padding: 8px 0 4px; }
 .lean { font-size: 30px; font-weight: 600; letter-spacing: 2px; }
 .conf { font-size: 13.5px; color: var(--ink-2); margin-top: 5px; }

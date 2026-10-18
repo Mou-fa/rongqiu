@@ -48,26 +48,37 @@ class JudgeBody(BaseModel):
 def api_ask(body: AskBody):
     nu = nucleus.parse(body.question)
     cfg = search.load_config()
-    query = f"{nu.agent} {nu.event} {nu.resource}"
+
+    # 组合词展开：聚餐 → 聚会、餐厅、餐饮、饭局…
+    # 目的是让整张网都成为候选库，而不是为每个事物建第一接触面数据库。
+    terms = search.expand_terms(nu.resource)
+    query = " ".join([nu.agent, nu.event] + terms[:10])
     results = search.search(query, cfg)
     cands = indexer.rank(nu, results, min_hits=2)
 
     # 系统先用 811 + REA 自己判一次，不要求用户做任何操作。
     # 「这些场景适用于我」本来就是假设槽该装的东西，系统可以自己承担这个假设。
     auto = None
-    if cands:
-        # 目前每条场景都是直接匹配到的，深度 1。
-        # 将来做溯源回流时，转述链每多一跳就 +1，确定性自动按 0.8^n 衰减。
-        facts = [review.SceneFact(scene=c.text, source=c.source, order=i, depth=1)
-                 for i, c in enumerate(cands)]
+    # 用户自述的处境，是整条判断里最硬的事实——来源就是当事人本人。
+    stated = [review.SceneFact(scene=b.as_text(), source="用户自述",
+                               order=i, depth=1, origin=-10 - i)
+              for i, b in enumerate(nu.background)]
+    facts = list(stated)
+    facts += [review.SceneFact(scene=c.text, source=c.source,
+                               order=len(stated) + i, depth=1)
+              for i, c in enumerate(cands)]
+
+    if facts:
         review.direction_of(facts, nu.binary)
-        # 归并同源材料：三条来自同一个群的说法，只算一份证据
-        mapping = origin.cluster(facts)
-        for f in facts:
-            f.origin = mapping.get(f.order, -1)
+        # 同源归并只作用于全网材料：用户自述的每一条都是独立的处境，
+        # 不能因为「都来自用户」就被归并成一条。
+        web = [f for f in facts if f.source != "用户自述"]
+        mapping = origin.cluster(web) if web else {}
+        for i, f in enumerate(web):
+            f.origin = mapping.get(i, -1)
         nd = node.build_from_review(
             nu.binary, facts,
-            assumption="下面这些场景都适用于我的情况（系统默认假设）",
+            assumption="全网找到的场景适用于我的情况" if web else "",
             unknown="我这次的具体情况，以及我还没说出来的约束")
         j = nd.judge()
         if j is not None:
@@ -78,8 +89,10 @@ def api_ask(body: AskBody):
     return {
         "nucleus": nu.as_dict(),
         "query": query,
+        "terms": terms,
         "provider": cfg.provider if cfg.api_key else "local",
         "candidates": [c.as_dict() for c in cands],
+        "stated": [b.as_dict() for b in nu.background],
         "total_hits": len(results),
         "auto": auto,
     }

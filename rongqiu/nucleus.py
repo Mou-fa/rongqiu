@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .llm import available, complete, load_config
 
@@ -52,6 +52,17 @@ SYSTEM = """你是「绒球」系统的原核解析器。
 
 PROMPT = """用户问题：{question}
 
+注意：用户往往会在一句话里说两件事——
+  1. 他要你判断的那件事（原核）
+  2. 他顺带说出的自己的处境/麻烦（背景事实）
+
+例：「今天身体不舒服，绒球你觉得能不能去聚餐？」
+  原核：我 · 去 · 聚餐
+  背景事实：我 · 身体不适 · 今天
+
+背景事实是用户亲口说的、关于他自己身上的事，不是别人的观点，
+也不是统计数据。它比任何外部材料都更硬。必须单独抽出来。
+
 请输出：
 {{
   "agent": "",
@@ -59,8 +70,37 @@ PROMPT = """用户问题：{question}
   "resource": "",
   "binary": "把三元组写成一个陈述句，判定时问它是否成立",
   "resource_norm": "资源的规范化名称，去掉时间和修饰语，只留最通用的名词短语",
-  "clarify": "若某格填不出，写需要用户补充什么；否则留空"
-}}"""
+  "clarify": "若某格填不出，写需要用户补充什么；否则留空",
+  "background": [
+    {{"agent": "", "event": "", "resource": ""}}
+  ]
+}}
+
+background 是用户自己说出的处境事实，来自他的原话，不能推测。
+没有就输出空数组。"""
+
+
+@dataclass
+class StatedFact:
+    """用户自己说出的处境事实。
+
+    这不是别人的观点，也不是统计数据——是用户身上正在发生的事。
+    它是整条判断里最硬的一类证据，因为来源就是当事人本人。
+    """
+    agent: str
+    event: str
+    resource: str
+    raw: str = ""
+
+    def complete(self) -> bool:
+        return all(str(x).strip() for x in (self.agent, self.event, self.resource))
+
+    def as_text(self) -> str:
+        return f"{self.agent} {self.event} {self.resource}"
+
+    def as_dict(self) -> dict:
+        return {"agent": self.agent, "event": self.event,
+                "resource": self.resource, "raw": self.raw}
 
 
 @dataclass
@@ -72,6 +112,7 @@ class Nucleus:
     raw_question: str = ""
     clarify: str = ""
     resource_norm: str = ""
+    background: list = field(default_factory=list)
 
     def complete(self) -> bool:
         return all(str(x).strip() for x in (self.agent, self.event, self.resource))
@@ -82,7 +123,10 @@ class Nucleus:
     def as_dict(self) -> dict:
         return {"agent": self.agent, "event": self.event, "resource": self.resource,
                 "binary": self.binary, "raw_question": self.raw_question,
-                "clarify": self.clarify, "complete": self.complete()}
+                "clarify": self.clarify, "complete": self.complete(),
+                "resource_norm": self.resource_norm,
+                "background": [b.as_dict() if hasattr(b, "as_dict") else b
+                               for b in self.background]}
 
     def render(self) -> str:
         lines = [f"原核：{self.agent} · {self.event} · {self.resource}",
@@ -115,9 +159,18 @@ def parse(question: str, cfg=None) -> Nucleus:
     event = str(d.get("event", "")).strip()
     resource = str(d.get("resource", "")).strip()
     binary = str(d.get("binary", "")).strip() or f"{agent}{event}{resource}"
+    background = []
+    for b in (d.get("background") or []):
+        sf = StatedFact(agent=str(b.get("agent", "")).strip(),
+                        event=str(b.get("event", "")).strip(),
+                        resource=str(b.get("resource", "")).strip(),
+                        raw=question)
+        if sf.complete():
+            background.append(sf)
     return Nucleus(agent=agent, event=event, resource=resource, binary=binary,
                    raw_question=question, clarify=str(d.get("clarify", "")).strip(),
-                   resource_norm=str(d.get("resource_norm", "")).strip())
+                   resource_norm=str(d.get("resource_norm", "")).strip(),
+                   background=background)
 
 
 # ---------------------------------------------------------------- 语音输入

@@ -32,6 +32,7 @@ CACHE_DIR = ROOT / "data" / "search_cache"
 @dataclass
 class SearchConfig:
     provider: str = "local"
+    base_url_llm: str = "https://api.deepseek.com"
     api_key: str = ""
     max_results: int = 60
     timeout: float = 25.0
@@ -128,6 +129,47 @@ def _local(query: str, cfg: SearchConfig) -> list[tuple[str, str]]:
         return []
     return [(it.get("source", "local"), it.get("text", ""))
             for it in items if it.get("text")][:cfg.max_results]
+
+
+EXPAND_SYSTEM = """你是「绒球」的检索词展开器。
+
+把用户问题里的核心名词，拆成它的构词成分，再展开成相关的检索词。
+例：「聚餐」→ 聚：聚会、聚拢 / 餐：餐厅、餐饮、餐食、餐盘、餐馆
+   → 输出 聚餐、聚会、餐厅、餐饮、餐馆、饭局
+
+目的：全网的文本里不一定出现「聚餐」这个词，但会出现「聚会」「餐厅」。
+展开之后，整张网都变成了第一接触面的候选库——不需要为每个事物建数据库。
+
+只输出 JSON：{"terms": ["", ""]}"""
+
+
+def expand_terms(resource: str, cfg: SearchConfig | None = None,
+                 limit: int = 12) -> list[str]:
+    """把核心名词展开成相关检索词。失败时退回原词，不阻塞判断。"""
+    if not resource:
+        return []
+    try:
+        from .llm import available as _avail
+        from .llm import complete as _complete
+        from .llm import load_config as _lc
+
+        lcfg = _lc()
+        if not _avail(lcfg):
+            return [resource]
+        raw = _complete(f"名词：{resource}", system=EXPAND_SYSTEM, cfg=lcfg)
+        if not raw:
+            return [resource]
+        t = raw.strip()
+        if t.startswith("```"):
+            import re as _re
+            t = _re.sub(r"^```[a-zA-Z]*\s*", "", t)
+            t = _re.sub(r"```\s*$", "", t)
+        terms = json.loads(t.strip()).get("terms", [])
+        out = [str(x).strip() for x in terms if str(x).strip()]
+        merged = [resource] + [x for x in out if x != resource]
+        return merged[:limit]
+    except Exception:
+        return [resource]
 
 
 def search(query: str, cfg: SearchConfig | None = None,

@@ -60,19 +60,30 @@ function renderResult(j, isAuto) {
     '<span class="seg">' + esc(n.event) + '</span><span class="sep">·</span>' +
     '<span class="seg">' + esc(n.resource) + '</span>';
 
+  // 用户自述的处境（最硬的事实）
+  const stated = (STATE.nucleus && STATE.nucleus.background) || [];
+  if (stated.length) {
+    $("#stated-wrap").classList.remove("hidden");
+    $("#stated").innerHTML = stated
+      .map(b => '<div class="item">' + esc(b.agent + " " + b.event + " " + b.resource) + '</div>')
+      .join("");
+  } else {
+    $("#stated-wrap").classList.add("hidden");
+  }
+
+  // 结构是主体
+  $("#metrics").innerHTML =
+    metric("独立事实", j.n) +
+    metric("支持 / 反对", supportSplit(j)) +
+    metric("链长", j.max_depth || 1);
+
+  // 机器倾向只占小字
   const yes = j.lean === "yes";
   $("#lean").textContent = yes ? "更可能是：会" : "更可能是：不会";
   $("#lean").style.color = yes ? "var(--accent)" : "var(--warn)";
   const ruleTxt = j.rule === "direct" ? "直接判定"
     : j.rule === "tie_break_11" ? "平票，由 11 决定" : "暂定判定";
-  const depthTxt = "链长 " + (j.max_depth || 1) + (j.over_depth ? " ⚠" : "");
-  $("#conf").textContent = "置信 " + (j.confidence * 100).toFixed(0) + "%  ·  " +
-    ruleTxt + "  ·  " + depthTxt;
-
-  $("#metrics").innerHTML =
-    metric("依据事实", j.n) +
-    metric("可确定", Math.round(j.determinability * 100) + "%") +
-    metric("支持率", Math.round(j.support_ratio * 100) + "%");
+  $("#conf").textContent = "置信 " + (j.confidence * 100).toFixed(0) + "% · " + ruleTxt;
 
   const ul = $("#evidence");
   ul.innerHTML = "";
@@ -90,12 +101,18 @@ function renderResult(j, isAuto) {
   $("#slots").innerHTML = slots;
 
   $("#refine-note").innerHTML = isAuto
-    ? "系统默认假设上面 " + j.n + " 条都适用于你。"
+    ? "系统默认把下面这些全网场景都当作适用于你。"
     : "已按你的点选重算。";
   $("#btn-refine").style.display = State_hasCandidates() ? "" : "none";
 }
 
 function State_hasCandidates() { return STATE.candidates.length > 0; }
+
+function supportSplit(j) {
+  const s = j.facts.filter(f => f.supports === "support").length;
+  const o = j.facts.filter(f => f.supports === "oppose").length;
+  return s + " / " + o;
+}
 
 function metric(k, v) {
   return '<div class="metric"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>';
