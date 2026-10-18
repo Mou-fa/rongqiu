@@ -71,11 +71,20 @@ function renderResult(j, isAuto) {
     $("#stated-wrap").classList.add("hidden");
   }
 
-  // 结构是主体
+  // 结构是主体。N 是第一接触面的实际数量，不是我们设定的。
+  const sp = j.split || { determinable: j.determinability, assumption: 0.1, unknown: 0.1 };
   $("#metrics").innerHTML =
-    metric("独立事实", j.n) +
-    metric("支持 / 反对", supportSplit(j)) +
-    metric("链长", j.max_depth || 1);
+    metric("第一接触面", j.n) +
+    metric("可确定", Math.round(sp.determinable * 100) + "%") +
+    metric("支持 / 反对", supportSplit(j));
+
+  const splitEl = document.getElementById("split-line");
+  if (splitEl) {
+    splitEl.textContent = "811 结构：可确定 " + Math.round(sp.determinable * 100) +
+      "% · 假设 " + Math.round(sp.assumption * 100) +
+      "% · 未知 " + Math.round(sp.unknown * 100) +
+      "%   链长 " + (j.max_depth || 1);
+  }
 
   // 机器倾向只占小字
   const yes = j.lean === "yes";

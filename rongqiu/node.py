@@ -18,7 +18,14 @@ from dataclasses import dataclass, field
 
 from .triples import Triple, SUPPORT, OPPOSE, DEPTH_DISCOUNT, MAX_DEPTH
 
-MAX_CONFIDENCE = 0.8     # 811：任何判断不超过 0.8
+MAX_CONFIDENCE = 0.8        # 811：任何判断不超过 0.8
+MAX_DETERMINABILITY = 0.8   # 811：可确定部分的上限也是 0.8
+
+# N 不是我们设定的，是第一接触面的实际数量——由那个事物本身决定。
+# 一个复杂事物的接触面数量不固定，系统只能去发现它。
+# 但无论 N 多大，可确定部分都不会超过 80%：N/(N+2) 会趋近 1，
+# 所以必须封顶，否则就突破了 811。
+#   剩下的 10% 是假设、10% 是未知，这两份永远存在。
 
 
 @dataclass
@@ -43,6 +50,8 @@ class Judgment:
             "confidence": round(self.confidence, 4),
             "n": self.n, "n_raw": self.n_raw,
             "determinability": round(self.determinability, 4),
+            # 811 的三段结构：可确定 / 假设 / 未知。后两段永远是固定的 10%。
+            "split": self.split(),
             "support_ratio": round(self.support_ratio, 4),
             "rule": self.rule, "max_depth": self.max_depth,
             "over_depth": self.max_depth > MAX_DEPTH,
@@ -50,15 +59,29 @@ class Judgment:
             "facts": [f.as_dict() for f in self.facts],
         }
 
+    def split(self) -> dict:
+        """811 的三段结构。
+
+        N 达到 8 或以上时可确定封顶 80%，剩下 20% 按 1:1 分为假设和未知，
+        正好是 8:1:1。N 不足 8 时可确定更小，剩下的部分仍然按 1:1 分——
+        假设和未知永远对半分，这是结构的恒定性。
+        """
+        det = self.determinability
+        rest = max(0.0, 1.0 - det) / 2
+        # 不在这里取整：三段各自取整会让总和变成 1.0001 之类，
+        # 而这三段相加必须严格等于 1。展示时再格式化。
+        return {"determinable": det, "assumption": rest, "unknown": rest}
+
     def render(self) -> str:
         side = "会" if self.lean == "yes" else "不会"
         lines = [
             f"原核：{self.nucleus}",
             f"倾向：{side}（置信 {self.confidence:.2f}）",
-            (f"N = {self.n} 个独立源头"
+            (f"第一接触面 N = {self.n}"
              + (f"（归并前 {self.n_raw} 条材料）" if self.n_raw > self.n else ""))
-            + f"  可确定 = {self.determinability:.0%}"
-            f"  支持率 = {self.support_ratio:.0%}",
+            + (lambda s: f"  可确定 {s['determinable']:.0%} : "
+                         f"假设 {s['assumption']:.0%} : 未知 {s['unknown']:.0%}")(self.split())
+            + f"  支持率 {self.support_ratio:.0%}",
             f"链长 = {self.max_depth}"
             + ("  ⚠ 超过 3 级，确定性已降到一半以下" if self.max_depth > MAX_DEPTH else ""),
             f"规则：{self.rule}",
@@ -132,7 +155,8 @@ class Node:
         # 一条链深 4 级的判断，可确定部分上限就是 0.8^3 = 51%——
         # 哪怕你有 8 条证据，它们本身也都是转述了三手的。
         depth_factor = DEPTH_DISCOUNT ** (max_depth - 1)
-        base_det = n / (n + 2)
+        # 封顶到 0.8：N 再多，可确定部分也不会超过 80%
+        base_det = min(n / (n + 2), MAX_DETERMINABILITY)
         rule = "direct" if base_det * depth_factor > 0.5 else "provisional"
         if abs(ratio - 0.5) < 1e-9:
             # 平票：无弃权，交给 11 决定。
