@@ -41,7 +41,8 @@ header { margin-bottom: 22px; }
 .brand { font-size: 21px; font-weight: 800; letter-spacing: .6px;
   display: flex; align-items: center; gap: 8px;
   width: fit-content; }        /* 渐变的宽度 = 文字宽度，整条彩虹才铺得满 */
-.brand .logo { width: 26px; height: 26px; display: block; flex: none; }
+.brand .logo { width: 30px; height: 30px; display: block; flex: none;
+  border-radius: 6px; }   /* 黑底方块，圆角一点更像图章而不是色块 */
 .tagline { font-size: 19px; font-weight: 800; letter-spacing: .8px;
   padding-left: 19px; margin-top: 2px;
   width: fit-content;

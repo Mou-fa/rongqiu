@@ -1,157 +1,99 @@
-"""生成绒球图标 SVG —— 蒲公英。
+"""生成 docs/icon.svg —— 绒球图标 v7（手绘蒲公英，黑底黄线）。
 
-用法：
-    python scripts/make_icon_svg.py            # 标准版 → docs/icon.svg
-    python scripts/make_icon_svg.py --compact  # 小尺寸版 → docs/icon-compact.svg
+按用户提供的草图重绘：
+    两株蒲公英，左大右小，各有双线茎
+    三颗飞走的种子（细梗 + 小圆环）
+    线条粗、圆头、小圆环收尾，手绘感
 
-为什么要两个版本：
-    512px 下好看的设计，缩到 32px 会消失——线太细、颜色太浅、绒太密。
-    小尺寸需要加粗线条、加深颜色、减少数量。这是图标设计的常规做法。
+配色按用户要求把原图的黑黄对调：
+    原图：黄底黑线  →  现在：黑底黄线
+并尽量撑满画布。
 
-设计：
-    蒲公英种子球 + 一个缺口 + 飞走的种子
-
-    缺口和那颗飞走的绿色种子，就是 811 里那 20% 永远抓不到的未知。
-    留下来的每一根，才是你能数的第一接触面。
+坐标按原图比例换算过来（原图 410-830 × 215-640 的方形区域映射到 256）。
 """
 
-import argparse
 import math
-import random
 import pathlib
 
 W = H = 256
-CX, CY = 128, 128
+BG = "#000000"
+FG = "#F5E500"
+
+SW_LINE = 6.2
+SW_RING = 5.2
+R_TIP = 6.8
+R_HUB = 8.6
+
+parts = [f'<rect x="0" y="0" width="{W}" height="{H}" fill="{BG}"/>']
 
 
-def build(compact: bool) -> str:
-    random.seed(2026)
+def ring(x, y):
+    return (f'<circle cx="{x:.2f}" cy="{y:.2f}" r="{R_TIP}" fill="{BG}" '
+            f'stroke="{FG}" stroke-width="{SW_RING}"/>')
 
-    R_IN = 9
-    GAP = math.radians(-38)
-    GAP_HALF = math.radians(10)
 
-    # 小尺寸版：线更粗、颜色更深、种子更少、光晕更实
-    line_mul = 1.9 if compact else 1.0
-    op_mul = 1.25 if compact else 1.0
-    rings = ([(30, 78)] if compact else [(72, 86), (44, 66)])
-    pappus_len = 6.2 if compact else 5.4
-    pappus_n = 3 if compact else 5
+def flower(cx, cy, R, n, phase):
+    out = [f'<circle cx="{cx}" cy="{cy}" r="{R_HUB}" fill="{BG}" '
+           f'stroke="{FG}" stroke-width="{SW_RING}"/>']
+    for i in range(n):
+        ang = phase + 2 * math.pi * i / n
+        out.append(
+            f'<line x1="{cx + (R_HUB + 4) * math.cos(ang):.2f}" '
+            f'y1="{cy + (R_HUB + 4) * math.sin(ang):.2f}" '
+            f'x2="{cx + R * math.cos(ang):.2f}" y2="{cy + R * math.sin(ang):.2f}" '
+            f'stroke="{FG}" stroke-width="{SW_LINE}" stroke-linecap="round"/>'
+        )
+        out.append(ring(cx + R * math.cos(ang), cy + R * math.sin(ang)))
+    return "".join(out)
 
-    c_fil = ("#e0678f", "#f28cac", "#ffb3c8") if compact else ("#f39ab7", "#ffb8cc", "#ffe0e9")
-    c_pap = ("#e88ab0", "#d9608c") if compact else ("#ffc3d4", "#f78aa8")
 
-    parts = []
+def stem(x0, y0, x1, y1, gap=10.0):
+    """双线茎：两条平行线，底端不封口（原图就是开口的）。"""
+    dx, dy = x1 - x0, y1 - y0
+    L = math.hypot(dx, dy)
+    nx, ny = -dy / L, dx / L
+    out = []
+    for s in (-1, 1):
+        ax, ay = x0 + nx * gap / 2 * s, y0 + ny * gap / 2 * s
+        bx, by = x1 + nx * gap / 2 * s, y1 + ny * gap / 2 * s
+        mx = (ax + bx) / 2 + nx * 4 * s
+        my = (ay + by) / 2 + ny * 4 * s
+        out.append(f'<path d="M{ax:.2f},{ay:.2f} Q{mx:.2f},{my:.2f} {bx:.2f},{by:.2f}" '
+                   f'stroke="{FG}" stroke-width="{SW_LINE}" stroke-linecap="round" fill="none"/>')
+    return "".join(out)
 
-    def pappus(x, y, ang, size, opacity):
-        out = []
-        for i in range(pappus_n):
-            d = -0.62 + 1.24 * i / (pappus_n - 1)
-            x2 = x + size * math.cos(ang + d)
-            y2 = y + size * math.sin(ang + d)
-            out.append(
-                f'<line x1="{x:.2f}" y1="{y:.2f}" x2="{x2:.2f}" y2="{y2:.2f}" '
-                f'stroke="url(#pappus)" stroke-width="{0.85 * line_mul:.2f}" '
-                f'stroke-opacity="{min(1.0, opacity * op_mul):.2f}" stroke-linecap="round"/>'
-            )
-        return "".join(out)
 
-    for n, r_out in rings:
-        width = (1.05 if n < 60 else 1.25) * line_mul
-        opacity = (0.62 if n < 60 else 0.85) * op_mul
-        for i in range(n):
-            ang = 2 * math.pi * i / n + random.uniform(-0.05, 0.05)
-            d = abs((ang - GAP + math.pi) % (2 * math.pi) - math.pi)
-            if d < GAP_HALF:
-                continue
-            r_end = r_out * (0.95 + 0.05 * random.random())
-            bend = random.uniform(-0.06, 0.06)
-            x1 = CX + R_IN * math.cos(ang)
-            y1 = CY + R_IN * math.sin(ang)
-            x2 = CX + r_end * math.cos(ang + bend)
-            y2 = CY + r_end * math.sin(ang + bend)
-            mx = CX + (R_IN + r_end) * 0.5 * math.cos(ang + bend * 0.3)
-            my = CY + (R_IN + r_end) * 0.5 * math.sin(ang + bend * 0.3)
-            parts.append(
-                f'<path d="M{x1:.2f},{y1:.2f} Q{mx:.2f},{my:.2f} {x2:.2f},{y2:.2f}" '
-                f'stroke="url(#filament)" stroke-width="{width:.2f}" '
-                f'stroke-opacity="{min(1.0, opacity):.2f}" stroke-linecap="round" fill="none"/>'
-            )
-            parts.append(pappus(x2, y2, ang + bend, pappus_len, opacity))
+def seed(x, y, ang, length=28, curve=0.55):
+    """飞走的种子：一截弯梗 + 顶端小圆环。"""
+    x2 = x + length * math.cos(ang)
+    y2 = y + length * math.sin(ang)
+    mx = x + length * 0.6 * math.cos(ang + curve)
+    my = y + length * 0.6 * math.sin(ang + curve)
+    return (f'<path d="M{x:.2f},{y:.2f} Q{mx:.2f},{my:.2f} {x2:.2f},{y2:.2f}" '
+            f'stroke="{FG}" stroke-width="{SW_LINE}" stroke-linecap="round" fill="none"/>'
+            + ring(x2, y2))
 
-    def flying(ox, oy, ang, scale, grad, opacity=1.0):
-        x2 = ox + 24 * scale * math.cos(ang)
-        y2 = oy + 24 * scale * math.sin(ang)
-        mx = ox + 12 * scale * math.cos(ang - 0.3)
-        my = oy + 12 * scale * math.sin(ang - 0.3)
-        out = [f'<path d="M{ox:.2f},{oy:.2f} Q{mx:.2f},{my:.2f} {x2:.2f},{y2:.2f}" '
-               f'stroke="{grad}" stroke-width="{1.1 * scale * line_mul:.2f}" '
-               f'stroke-opacity="{opacity}" stroke-linecap="round" fill="none"/>']
-        for i in range(pappus_n):
-            d = -0.75 + 1.5 * i / (pappus_n - 1)
-            fx = x2 + 8.5 * scale * math.cos(ang + d)
-            fy = y2 + 8.5 * scale * math.sin(ang + d)
-            out.append(f'<line x1="{x2:.2f}" y1="{y2:.2f}" x2="{fx:.2f}" y2="{fy:.2f}" '
-                       f'stroke="{grad}" stroke-width="{1.0 * scale * line_mul:.2f}" '
-                       f'stroke-opacity="{opacity}" stroke-linecap="round"/>')
-        return "".join(out)
 
-    g0x = CX + 96 * math.cos(GAP)
-    g0y = CY + 96 * math.sin(GAP)
-    parts.append(flying(g0x, g0y, GAP, 0.95, "url(#swirl)"))
+# ---- 左大花 ----
+LX, LY, LR = 74, 78, 62
+parts.append(stem(LX + 10, LY + 48, LX + 26, 236))
+parts.append(flower(LX, LY, LR, 10, phase=math.radians(-96)))
 
-    a = GAP + math.radians(-22)
-    parts.append(flying(CX + 104 * math.cos(a), CY + 104 * math.sin(a),
-                        a, 0.8, "url(#pappus)", 0.85))
+# ---- 右小花 ----
+RX, RY, RR = 182, 134, 45
+parts.append(stem(RX - 10, RY + 34, RX - 34, 232))
+parts.append(flower(RX, RY, RR, 8, phase=math.radians(28)))
 
-    parts.append(f'<circle cx="{CX}" cy="{CY}" r="{R_IN}" fill="url(#receptacle)"/>')
-    parts.append(f'<circle cx="{CX}" cy="{CY}" r="{4.6 if not compact else 5.6}" fill="url(#core)"/>')
+# ---- 飞走的种子 ----
+parts.append(seed(160, 60, math.radians(-72), 30, 0.6))
+parts.append(seed(212, 82, math.radians(-34), 26, 0.5))
+parts.append(seed(224, 128, math.radians(18), 22, 0.55))
 
-    halo_op = 0.75 if compact else 0.55
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}">
-  <defs>
-    <linearGradient id="filament" x1="0.1" y1="0" x2="0.9" y2="1">
-      <stop offset="0%" stop-color="{c_fil[0]}"/>
-      <stop offset="55%" stop-color="{c_fil[1]}"/>
-      <stop offset="100%" stop-color="{c_fil[2]}"/>
-    </linearGradient>
-    <linearGradient id="pappus" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="{c_pap[0]}"/>
-      <stop offset="100%" stop-color="{c_pap[1]}"/>
-    </linearGradient>
-    <linearGradient id="swirl" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#8cc4a1"/>
-      <stop offset="100%" stop-color="#3f6b4f"/>
-    </linearGradient>
-    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#ffd6e2" stop-opacity="{halo_op}"/>
-      <stop offset="70%" stop-color="#ffe4ec" stop-opacity="{halo_op * 0.4:.2f}"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="receptacle" cx="38%" cy="32%" r="70%">
-      <stop offset="0%" stop-color="#ffd9e4"/>
-      <stop offset="100%" stop-color="#ef7fa4"/>
-    </radialGradient>
-    <radialGradient id="core" cx="34%" cy="30%" r="78%">
-      <stop offset="0%" stop-color="#a8d8ba"/>
-      <stop offset="100%" stop-color="#3f6b4f"/>
-    </radialGradient>
-  </defs>
-  <g transform="translate(-9,0)">
-    <circle cx="{CX}" cy="{CY}" r="104" fill="url(#halo)"/>
-    {''.join(parts)}
-  </g>
+svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}">
+  {''.join(parts)}
 </svg>
 '''
 
-
-if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--compact", action="store_true", help="小尺寸专用：线更粗、颜色更深")
-    args = ap.parse_args()
-
-    root = pathlib.Path(__file__).resolve().parents[1]
-    name = "icon-compact.svg" if args.compact else "icon.svg"
-    out = root / "docs" / name
-    out.write_text(build(args.compact), encoding="utf-8")
-    print("wrote", out)
+pathlib.Path("docs/icon.svg").write_text(svg, encoding="utf-8")
+pathlib.Path("docs/icon-compact.svg").write_text(svg, encoding="utf-8")
+print("wrote docs/icon.svg", len(svg), "bytes")
