@@ -38,6 +38,7 @@ class Triple:
     grade: str = "L1"
     evidence: str = ""
     frequency: float = 1.0   # 共识抽取里这条事实出现的频率，1.0 表示每次都抽到
+    # 注意：人工勾选的场景走 SceneFact，不走 Triple
     shares: str = ""         # 与原核共享哪几格，逗号分隔：resource,agent,event
     resource_norm: str = ""  # 资源的规范化名称，用于跨表述做实体归一化
 
@@ -84,6 +85,40 @@ class Triple:
             "complete": self.complete(), "is_fact": self.is_fact(),
             "frequency": self.frequency, "shares": self.shares,
         }
+
+
+@dataclass
+class SceneFact:
+    """一条被人工勾选过倾向的场景。
+
+    全网匹配回来的场景大多是习惯性表述（「我参加聚会后经常觉得累」），
+    不是已发生的交换事件，硬抽三元组会丢掉它们。所以这里不再抽取——
+    场景原文保留，倾向由人来勾选。
+
+    分工：
+        机器负责「找到你没找到的证据」
+        人负责「这条证据对这件事意味着什么」
+        N11 负责「把这些合起来算」
+    """
+    scene: str
+    supports: str = NEUTRAL     # support / oppose / neutral
+    source: str = "web"
+    grade: str = "L1"
+    order: int = 0
+    frequency: float = 1.0
+
+    def complete(self) -> bool:
+        return bool(self.scene.strip())
+
+    def is_fact(self) -> bool:
+        return self.complete() and self.supports in (SUPPORT, OPPOSE)
+
+    def as_text(self) -> str:
+        return self.scene
+
+    def as_dict(self) -> dict:
+        return {"scene": self.scene, "supports": self.supports,
+                "source": self.source, "grade": self.grade, "order": self.order}
 
 
 @dataclass

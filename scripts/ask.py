@@ -1,95 +1,83 @@
-"""绒球·问一条：从用户问题走到二元判断。
+"""绒球·问一条：用户问题 → 原核 → 全网匹配 → 人工勾选 → N11 判断
 
-完整链路：
-    用户问题（文本；语音是同一个入口的适配器）
-        → 原核解析：三元组（代理·事件·资源）
-        → 在语料里找第一接触面（先结构预筛，后模型判相关性）
-        → 共识抽取稳定事实
-        → N11 判定
+    python scripts/ask.py --question "我能不能去参加今晚的聚会"
+    python scripts/ask.py --question "..." --answers "s,o,s,n,o,s"   # 脚本化演示
 """
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from rongqiu import extract, match, node, nucleus, trace  # noqa: E402
-
-QUESTION = "今晚的聚会，我应该去吗？"
+from rongqiu import extract, journal, match, node, nucleus, review  # noqa: E402
 
 CORPUS = [
-    # 相关
+    ("web", "我参加聚会前通常会先睡一觉，否则全程提不起精神。"),
+    ("web", "我参加聚会一般待两小时就走，主人家也不会介意。"),
+    ("web", "我参加聚会后经常觉得累，第二天状态很差。"),
+    ("web", "我参加聚会时总是找不到话说，场面很尴尬。"),
+    ("web", "我参加聚会最看重的是现场有没有熟人。"),
+    ("web", "我参加聚会很少喝酒，一般十点前就回家。"),
     ("chat", "老张：周五晚上聚一下？就我们几个老人，好久没见了。"),
     ("calendar", "10月18日 19:00-21:00 项目复盘会（全员，不可缺席）"),
-    ("chat", "小李：你要是不方便，我们就改下周，反正人也不齐。"),
-    ("note", "最近两周平均每天睡 5.5 小时，周三已经推掉一次约了。"),
-    ("chat", "老张：这次聚完，老王就调去上海了，可能几年见不着。"),
-    # 无关
     ("news", "苹果发布新款手机，售价 7999 元起。"),
-    ("chat", "王经理：下季度的预算表我发你邮箱了。"),
-    ("note", "牛奶快喝完了，记得买。"),
-    ("news", "央行宣布下调存款准备金率 0.25 个百分点。"),
-    ("chat", "小李：明天上午的代码评审改到下午三点。"),
+    ("note", "最近两周平均每天睡 5.5 小时。"),
 ]
 
 
-def main() -> int:
-    print("=" * 64)
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--question", default="我能不能去参加今晚的聚会")
+    ap.add_argument("--answers", default=None,
+                    help="脚本化勾选，逗号分隔：s=支持 o=反对 n=无关")
+    ap.add_argument("--assumption", default="")
+    ap.add_argument("--unknown", default="")
+    ap.add_argument("--min-hits", type=int, default=2)
+    ap.add_argument("--no-record", action="store_true")
+    args = ap.parse_args(argv)
+
+    print("=" * 68)
     print("绒球 · 问一条")
-    print("=" * 64)
-    print(f"用户输入：{QUESTION}\n")
+    print("=" * 68)
+    print(f"用户输入：{args.question}\n")
 
-    print("① 原核解析（问题 → 三元组）")
-    nu = nucleus.parse(QUESTION)
-    print(f"   {nu.render()}\n")
+    print("① 识别：提取主谓宾")
+    nu = nucleus.parse(args.question)
+    print(f"   原核三元组：{nu.agent} · {nu.event} · {nu.resource}")
+    print(f"   二元问题：{nu.binary}，会成立吗？\n")
 
-    print("② 找第一接触面（结构预筛）")
-    cands = match.rank(nu, CORPUS, min_overlap=0.0, limit=10)
+    print("② 全网匹配：找同一主谓宾构成的场景")
+    cands = match.rank(nu, CORPUS, min_hits=args.min_hits)
     print(match.render(cands))
-    print()
-    print("   注意：字符重叠只是廉价预筛。看看它有没有漏掉真正相关的——")
-    keep = [c for c in cands if c.overlap >= 0.15]
-    print(f"   按 0.15 门槛，只有 {len(keep)} 条进入下一轮。")
-    if len(keep) < 3:
-        print("   ⚠ 预筛漏掉了大部分相关内容——中文改写让字面重叠失效。")
-        print("     这里先放行全部候选，把相关性交给模型判断。")
-        keep = cands
-    print()
-
-    print("③ 抽取 + 共识（3 次）")
-    texts = [(c.source, c.text) for c in keep]
-    ex = extract.consensus(nu, texts, runs=3, min_freq=0.6)
-    print(f"   保留 {len(ex.facts)} 条稳定事实\n")
-
-    print("④ 分槽：结构共享的进确定槽，其余全部进 11")
-    report: list = []
-    nd_pre = node.build(nu.binary, ex, trace, nucleus_resource=nu.resource_norm,
-                        report=report)
-    for r in report:
-        label = "确定槽" if r.slot == "confirmed" else f"11({r.slot})"
-        mark = {"support": "+", "oppose": "-"}.get(r.supports, "0")
-        print(f"   {label:16s} [{r.grade}] {mark} {r.text}"
-              f"   {r.reason}  shares={r.shares or '无'}")
-    print()
-
-    print("⑤ N11 判定")
-    tb_lean, tb_reason = extract.tie_break_of(nu.binary, texts)
-    nd = nd_pre
-    print(f"   实际进入节点的事实：{len(nd.facts)} 条"
-          f"（其中带方向 {nd.n} 条）")
-    for f in nd.facts:
-        print(f"     · {f.as_text()}  supports={f.supports}  grade={f.grade}")
-    print()
-    j = nd.judge(tie_break_lean=tb_lean, tie_break_reason=tb_reason)
-    if j is None:
-        print("   节点不成立：没有任何结构相关的方向证据。")
-        print("   这不是 bug——这个问题的答案，从结构上就没有证据支撑。")
+    print(f"\n   {len(CORPUS)} 条文本中 {len(cands)} 条命中原核成分\n")
+    if not cands:
         return 1
-    print("-" * 64)
+
+    print("③ 人工勾选倾向")
+    answers = args.answers.split(",") if args.answers else None
+    facts = review.interactive(cands, nu, answers=answers)
+    print(review.summarize(facts))
+
+    print("\n④ N11 判定")
+    assumption = args.assumption or "勾选的场景与我这次的情况相似"
+    unknown = args.unknown or "当晚是否另有无法推脱的安排"
+    nd = node.build_from_review(nu.binary, facts, assumption=assumption,
+                                unknown=unknown)
+    j = nd.judge()
+    print("-" * 68)
+    if j is None:
+        print("节点不成立：勾选里没有方向性的证据。")
+        return 1
     print(j.render())
-    print("-" * 64)
+    print("-" * 68)
+
+    if not args.no_record:
+        entry = journal.record(j, args.question, resolve_days=7)
+        print(f"\n已入档：{entry['id']}   7 天后回收结果")
     return 0
 
 

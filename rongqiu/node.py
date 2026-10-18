@@ -128,6 +128,14 @@ class SlotReport:
     shares: str
 
 
+def build_from_review(question: str, scenes: list, assumption: str = "",
+                      unknown: str = "") -> Node:
+    """人工勾选过的场景直接组节点。不再走 trace 分级——因为每一条
+    都是用户亲自确认过的，等级由来源决定，不由模型猜。"""
+    return Node(nucleus=question, facts=list(scenes),
+                assumption=assumption, unknown=unknown)
+
+
 def build(question: str, extraction, trace_mod, include_assumptions: bool = False,
           require_independence: bool = True, nucleus_resource: str = "",
           report: list | None = None) -> Node:

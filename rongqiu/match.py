@@ -1,10 +1,14 @@
-"""原核 ↔ 世界：在三元组空间里找第一接触面。
+"""原核 ↔ 世界：按主谓宾成分做匹配。
 
-为什么要先做结构预筛：互联网上的文本是海量的，不可能全部塞给模型。
-但三元组的表示统一之后，可以先做一次廉价的字符重叠匹配，把候选从
-几千条压到几十条，再让模型做语义层面的相关性判断。
+不是实体归一化，是成分匹配。用户问题的三元组提取时已经剥掉了时间和修饰语：
 
-这一步是骨架，不是装饰——没有它，绒球只能处理你手动喂给它的几段文本。
+    「我能不能去参加今晚的聚会」→ 我 · 参加 · 聚会
+
+然后拿这三个成分去全网文本里找。文本里同时出现「我」「参加」「聚会」的，
+就是候选第一接触面。
+
+不需要判断「今晚的聚会」和「周五晚上聚会」是不是同一个实体——
+提取阶段已经把修饰语扔掉了，剩下的三个成分就是匹配键。
 """
 
 from __future__ import annotations
@@ -18,42 +22,39 @@ from .nucleus import Nucleus
 class Candidate:
     source: str
     text: str
-    overlap: float
+    hits: int          # 命中了几个成分（0-3）
+    matched: list      # 命中的成分
+
+    @property
+    def overlap(self) -> float:
+        return self.hits / 3.0
 
     def as_dict(self) -> dict:
-        return {"source": self.source, "text": self.text, "overlap": round(self.overlap, 3)}
+        return {"source": self.source, "text": self.text,
+                "hits": self.hits, "matched": self.matched}
 
 
-def _bigrams(s: str) -> set[str]:
-    s = "".join(ch for ch in s if not ch.isspace())
-    return {s[i:i + 2] for i in range(len(s) - 1)} if len(s) > 1 else {s}
-
-
-def overlap(nucleus: Nucleus, text: str) -> float:
-    """原核三元组和一段文本的字符二元组重叠度。
-
-    中文没有空格，分词又依赖词典。二元组重叠是一个足够便宜、且不依赖
-    外部词典的近似——用于把候选量级压下来，不用于最终判断。
-    """
-    core = _bigrams(f"{nucleus.agent}{nucleus.event}{nucleus.resource}")
-    if not core:
-        return 0.0
-    body = _bigrams(text)
-    if not body:
-        return 0.0
-    return len(core & body) / len(core)
+def components(nucleus: Nucleus) -> list[tuple[str, str]]:
+    return [("agent", nucleus.agent), ("event", nucleus.event),
+            ("resource", nucleus.resource)]
 
 
 def rank(nucleus: Nucleus, texts: list[tuple[str, str]],
-         min_overlap: float = 0.15, limit: int = 12) -> list[Candidate]:
-    scored = [Candidate(src, text, overlap(nucleus, text)) for src, text in texts]
-    scored = [c for c in scored if c.overlap >= min_overlap]
-    scored.sort(key=lambda c: -c.overlap)
-    return scored[:limit]
+         min_hits: int = 2, limit: int = 20) -> list[Candidate]:
+    """按命中的成分数排序。至少命中 min_hits 个才算候选。"""
+    out = []
+    for src, text in texts:
+        matched = [name for name, value in components(nucleus)
+                   if value and value in text]
+        if len(matched) >= min_hits:
+            out.append(Candidate(src, text, len(matched), matched))
+    out.sort(key=lambda c: -c.hits)
+    return out[:limit]
 
 
 def render(cands: list[Candidate]) -> str:
     if not cands:
-        return "  （没有候选）"
-    return "\n".join(f"  [{c.source:8s}] 重叠 {c.overlap:.2f}  {c.text[:48]}"
-                     for c in cands)
+        return "  （没有候选：没有文本同时命中足够多的主谓宾成分）"
+    return "\n".join(
+        f"  [{c.source:8s}] 命中 {c.hits}/3 {'+'.join(c.matched):22s} {c.text[:44]}"
+        for c in cands)
