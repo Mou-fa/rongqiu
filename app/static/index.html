@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>绒球</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="brand"><span class="dot"></span> 绒球</div>
+    <div class="sub">用真实发生过的事，判断一件你还没决定的事</div>
+  </header>
+
+  <!-- 第一步 -->
+  <section id="step-ask" class="panel">
+    <label class="label">你现在要决定什么？</label>
+    <textarea id="question" rows="2" placeholder="例如：我能不能去参加今晚的聚会"></textarea>
+    <div class="examples">
+      <span>试试：</span>
+      <button class="chip" data-q="我能不能去参加今晚的聚会">今晚的聚会去不去</button>
+      <button class="chip" data-q="我应不应该换工作">要不要换工作</button>
+      <button class="chip" data-q="我要不要买这个手机">要不要买手机</button>
+      <button class="chip" data-q="我要不要学英语">要不要学英语</button>
+      <button class="chip" data-q="我要不要去健身房">要不要去健身房</button>
+      <button class="chip" data-q="我要不要接受这个offer">要不要接 offer</button>
+    </div>
+    <button id="btn-ask" class="primary">开始判断</button>
+    <p class="hint">系统会先把问题拆成「谁 · 做什么 · 对什么」，再去全网找同类的真实场景。</p>
+  </section>
+
+  <!-- 第二步 -->
+  <section id="step-pick" class="panel hidden">
+    <div class="nucleus">
+      <div class="label">我理解你在问</div>
+      <div class="svo" id="svo"></div>
+      <div class="binary" id="binary"></div>
+    </div>
+
+    <div class="label" style="margin-top:22px">找到 <b id="hit-count">0</b> 条同类场景</div>
+    <p class="hint">只勾选「这确实是你的真实情况」的。没选的不会参与判断。</p>
+    <div id="candidates" class="cands"></div>
+
+    <div class="bar">
+      <span id="picked-count">已选 0 条</span>
+      <button id="btn-judge" class="primary" disabled>看结论</button>
+    </div>
+  </section>
+
+  <!-- 第三步 -->
+  <section id="step-result" class="panel hidden">
+    <div class="verdict">
+      <div class="label">绒球的倾向</div>
+      <div class="lean" id="lean"></div>
+      <div class="conf" id="conf"></div>
+    </div>
+    <div class="metrics" id="metrics"></div>
+    <div class="label" style="margin-top:20px">依据（全部公开）</div>
+    <ul class="evidence" id="evidence"></ul>
+    <div class="slots" id="slots"></div>
+    <button id="btn-again" class="ghost">再问一个</button>
+  </section>
+
+  <footer>判断是趋近值，不是断言 · 已入档，7 天后可回收结果</footer>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
