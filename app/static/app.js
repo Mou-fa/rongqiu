@@ -183,6 +183,7 @@ function renderQuestions() {
           STATE.answers.push({ id: q.id, answer: v });
         }
         paintAnswers();
+        updateBar();
         await judgeAgain();
       };
     });
@@ -299,15 +300,30 @@ function renderPrompts() {
 }
 
 function updateBar() {
-  const n = STATE.picked.size;
+  const nSel = STATE.picked.size;
+  const nAns = (STATE.answers || []).length;
   const c = $("#picked-count");
-  if (c) c.textContent = n === 0 ? "已选 0 条（当前显示：只用你自己的处境）" : "已选 " + n + " 条";
   const b = $("#btn-judge");
+
+  // 文案必须说真话：当前判断里到底包含什么。
+  // 第一版不管有没有答过询问，0 条时一律写「只用你自己的处境」，
+  // 但那时明明已经答过两条——文案在撒谎。
+  if (c) {
+    const parts = [];
+    if (nSel > 0) parts.push("已选 " + nSel + " 条");
+    else parts.push("已选 0 条");
+    if (nAns > 0) parts.push(nAns + " 条询问回答");
+    parts.push(nSel === 0 && nAns === 0 ? "只用你自己说出的处境" : "");
+    c.textContent = parts.filter(Boolean).join(" · ");
+  }
+
   if (!b) return;
   // 永远可点：用户要来回比对，不能因为取消到 0 条就锁死。
-  // 0 条时的语义是「还原」——只用用户自述重新算一遍。
   b.disabled = false;
-  b.textContent = n === 0 ? "还原判断" : "加入判断";
+  // 什么输入都没有时，这个按钮的语义是「重算」——
+  // 算出来的结果和初始状态一样，所以倾向也应该收起来。
+  b.textContent = (nSel === 0 && nAns === 0) ? "重算"
+                 : (nSel === 0 ? "用询问回答重算" : "加入判断");
 }
 
 function supportSplit(j) {
@@ -321,7 +337,11 @@ function metric(k, v) {
 }
 
 async function judgeAgain() {
-  STATE.engaged = true;      // 用户动过了，此后才显示倾向
+  // 只有真的提供了输入（勾了场景或答了询问），才算用户参与过。
+  // 什么都没选就点「重算」，出来的结果和初始状态一样，
+  // 那就不该显示倾向——否则「还原」会还原出一个结论来。
+  STATE.engaged = (STATE.picked.size > 0 || (STATE.answers || []).length > 0);
+
   const selected = [...STATE.picked].sort((a, b) => a - b)
     .map(i => ({ text: STATE.candidates[i].text, source: STATE.candidates[i].source }));
   const stated = STATE.stated.map(b => ({
