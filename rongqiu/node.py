@@ -35,12 +35,14 @@ class Judgment:
     facts: list[Triple] = field(default_factory=list)
     reason: str = ""
     max_depth: int = 1
+    n_raw: int = 0          # 归并前的材料条数，用于展示「有多少条同源」
 
     def as_dict(self) -> dict:
         return {
             "nucleus": self.nucleus, "lean": self.lean,
             "confidence": round(self.confidence, 4),
-            "n": self.n, "determinability": round(self.determinability, 4),
+            "n": self.n, "n_raw": self.n_raw,
+            "determinability": round(self.determinability, 4),
             "support_ratio": round(self.support_ratio, 4),
             "rule": self.rule, "max_depth": self.max_depth,
             "over_depth": self.max_depth > MAX_DEPTH,
@@ -53,7 +55,9 @@ class Judgment:
         lines = [
             f"原核：{self.nucleus}",
             f"倾向：{side}（置信 {self.confidence:.2f}）",
-            f"N = {self.n:.2f}  可确定 = {self.determinability:.0%}"
+            (f"N = {self.n} 个独立源头"
+             + (f"（归并前 {self.n_raw} 条材料）" if self.n_raw > self.n else ""))
+            + f"  可确定 = {self.determinability:.0%}"
             f"  支持率 = {self.support_ratio:.0%}",
             f"链长 = {self.max_depth}"
             + ("  ⚠ 超过 3 级，确定性已降到一半以下" if self.max_depth > MAX_DEPTH else ""),
@@ -98,12 +102,30 @@ class Node:
         # 链长加权：每多一级，这条事实的有效分量乘以 0.8。
         # 不这么做的话，一条转述了三手的信息和一条亲眼所见的信息会被
         # 当成同样重，而 0.8^n 的推导正是因为它们不等价。
-        weights = [DEPTH_DISCOUNT ** (max(getattr(f, "depth", 1), 1) - 1)
-                   for f in directional]
-        total_w = sum(weights)
-        yes_w = sum(w for w, f in zip(weights, directional) if f.supports == SUPPORT)
-        ratio = yes_w / total_w
-        n = len(directional)             # 事实条数（展示用）
+        # 按来源归并：同一个源头的多条材料，只能算一份证据。
+        # 不做这一步的话，三个朋友在同一个群里说同一件事，会被算成三份
+        # 独立证据，直接把 N 和置信度抬虚。标签不同不等于源头不同。
+        groups: dict[int, list] = {}
+        for f in directional:
+            key = getattr(f, "origin", -1)
+            key = key if key >= 0 else -1000 - directional.index(f)
+            groups.setdefault(key, []).append(f)
+
+        weights_of = lambda f: DEPTH_DISCOUNT ** (max(getattr(f, "depth", 1), 1) - 1)
+
+        # 每个源头投一票，但票的份量按链长加权：
+        # 亲眼所见的源头（深 1）比转述三手的源头（深 4）更有份量。
+        yes_share, all_share = 0.0, 0.0
+        for group in groups.values():
+            g_weight = max(weights_of(f) for f in group)
+            w_yes = sum(weights_of(f) for f in group if f.supports == SUPPORT)
+            w_no = sum(weights_of(f) for f in group if f.supports == OPPOSE)
+            all_share += g_weight
+            if w_yes >= w_no:
+                yes_share += g_weight
+
+        n = len(groups)                   # 独立源头数 = 有效事实数
+        ratio = yes_share / all_share if all_share else 0.5
         max_depth = max(getattr(f, "depth", 1) for f in directional)
 
         # 链长是整条推理的属性，不是单条事实的属性。
@@ -131,7 +153,7 @@ class Node:
             n=n, determinability=det, support_ratio=ratio, rule=rule,
             assumption=self.assumption, unknown=self.unknown,
             facts=directional, reason=reason,
-            max_depth=max_depth,
+            max_depth=max_depth, n_raw=len(directional),
         )
 
 

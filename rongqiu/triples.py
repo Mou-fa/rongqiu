@@ -113,6 +113,7 @@ class SceneFact:
     grade: str = "L1"
     order: int = 0
     depth: int = 1                          # 推理链长度
+    origin: int = -1                        # 源头组号；-1 表示未归并（各自独立）
     frequency: float = 1.0
 
     def complete(self) -> bool:
@@ -127,7 +128,8 @@ class SceneFact:
     def as_dict(self) -> dict:
         return {"scene": self.scene, "supports": self.supports,
                 "source": self.source, "grade": self.grade, "order": self.order,
-                "depth": self.depth, "weight": round(DEPTH_DISCOUNT ** (self.depth - 1), 4)}
+                "depth": self.depth, "origin": self.origin,
+                "weight": round(DEPTH_DISCOUNT ** (self.depth - 1), 4)}
 
 
 @dataclass

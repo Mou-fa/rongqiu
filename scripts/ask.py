@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from rongqiu import indexer, journal, node, nucleus, review, search  # noqa: E402
+from rongqiu import indexer, journal, node, nucleus, origin, review, search  # noqa: E402
 
 
 def main(argv=None) -> int:
@@ -64,6 +64,10 @@ def main(argv=None) -> int:
     print(f"\n④ 系统判定倾向（一次判完全部，保证前后一致）")
     facts = review.to_scene_facts(chosen)
     review.direction_of(facts, nu.binary)
+    mapping = origin.cluster(facts)
+    for f in facts:
+        f.origin = mapping.get(f.order, -1)
+    print("\n" + origin.describe(mapping, facts))
     for f in facts:
         mark = {"support": "+", "oppose": "-"}.get(f.supports, "0")
         print(f"   {mark} {f.scene}")

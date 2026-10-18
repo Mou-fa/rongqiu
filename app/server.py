@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from rongqiu import indexer, journal, node, nucleus, review, search  # noqa: E402
+from rongqiu import indexer, journal, node, nucleus, origin, review, search  # noqa: E402
 
 app = FastAPI(title="绒球")
 STATIC = ROOT / "app" / "static"
@@ -61,6 +61,10 @@ def api_ask(body: AskBody):
         facts = [review.SceneFact(scene=c.text, source=c.source, order=i, depth=1)
                  for i, c in enumerate(cands)]
         review.direction_of(facts, nu.binary)
+        # 归并同源材料：三条来自同一个群的说法，只算一份证据
+        mapping = origin.cluster(facts)
+        for f in facts:
+            f.origin = mapping.get(f.order, -1)
         nd = node.build_from_review(
             nu.binary, facts,
             assumption="下面这些场景都适用于我的情况（系统默认假设）",
