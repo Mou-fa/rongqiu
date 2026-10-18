@@ -260,8 +260,10 @@ function updateVerdict() {
     return;
   }
   const yes = j.lean === "yes";
+  // 结论是主角，按钮是配角。
+  // 结果已经自动算出来了，视觉重心就应该压在结果上，
+  // 而不是让一个操作按钮比结论还抢眼。
   el.innerHTML =
-    '<span class="vlabel">参考倾向</span>' +
     '<b style="color:' + (yes ? "var(--accent)" : "var(--warn)") + '">' +
     (yes ? "更可能是：会" : "更可能是：不会") + '</b>' +
     '<span class="vconf">置信 ' + (j.confidence * 100).toFixed(0) + '%</span>';
@@ -278,7 +280,7 @@ function renderPrompts() {
     '<div class="bar">' +
       '<span id="picked-count">已选 0 条</span>' +
       '<span id="verdict" class="bar-verdict"></span>' +
-      '<button id="btn-judge" class="primary">加入判断</button>' +
+      '<button id="btn-judge" class="bar-btn">加入判断</button>' +
     '</div>' +
     '<div id="judge-note" class="judge-note hidden"></div>';
   const list = $("#cand-list");
