@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from rongqiu import calibration, common_root, crisis, environment, indexer, journal, node, nucleus, origin, questions, review, search, topology  # noqa: E402
+from rongqiu import calibration, common_root, crisis, drift, environment, indexer, journal, node, nucleus, origin, questions, review, search, topology  # noqa: E402
 
 app = FastAPI(title="绒球")
 STATIC = ROOT / "app" / "static"
@@ -193,6 +193,16 @@ def api_judge(body: JudgeBody):
     gap = calibration.gap_for(body.question, jd.get("confidence") or 0)
     return {"ok": True, "judgment": jd, "id": entry["id"],
             "resolve_by": entry["resolve_by"], "related": related, "gap": gap}
+
+
+@app.get("/api/drift")
+def api_drift():
+    """判断漂移：同一个决定隔了一段时间又判一次，两次之间什么变了。
+
+    只陈述差异。两次判断没有哪个更对。
+    """
+    items = drift.detect()
+    return {"items": items, "total": len(items)}
 
 
 @app.get("/api/topology")

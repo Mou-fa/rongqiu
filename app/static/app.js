@@ -622,9 +622,51 @@ async function loadTopology() {
   }
 }
 
+// 判断漂移：同一个决定隔时间又判了一次，两次之间什么变了。
+// 只说「变了什么」，不说「为什么变」，更不说「哪个更对」。
+async function loadDrift() {
+  const box = document.getElementById("drift-body");
+  if (!box) return;
+  try {
+    const r = await fetch("/api/drift");
+    const d = await r.json();
+    if (!d.total) {
+      box.innerHTML = '<p class="hint">还没有发现漂移。' +
+        '同一件事隔一段时间再判一次（至少 12 小时），这里会记录两次之间的差异。' +
+        '一小时内问五遍不算——那是反复纠结。</p>';
+      return;
+    }
+    let h = '';
+    d.items.slice(0, 6).forEach(it => {
+      const days = Math.round(it.gap_hours / 24 * 10) / 10;
+      const when = days >= 1 ? days + " 天" : it.gap_hours + " 小时";
+      h += '<div class="drift-card">' +
+        '<div class="drift-head">' +
+          '<span class="drift-q">' + esc(truncate(it.question, 36)) + '</span>' +
+          '<span class="drift-gap">间隔 ' + when + ' · 判过 ' + it.times + ' 次</span>' +
+        '</div>' +
+        '<p class="drift-msg">' + esc(it.message) + '</p>' +
+        '<div class="drift-pair">' +
+          '<span class="drift-cell">' + (it.first.lean === "yes" ? "会" : "不会") +
+            ' · ' + Math.round(it.first.confidence * 100) + '%</span>' +
+          '<span class="drift-arrow">→</span>' +
+          '<span class="drift-cell on">' + (it.last.lean === "yes" ? "会" : "不会") +
+            ' · ' + Math.round(it.last.confidence * 100) + '%</span>' +
+        '</div>' +
+      '</div>';
+    });
+    h += '<p class="hint" style="margin-top:14px">' +
+      '两次判断没有哪个更对。这里只记录差异。</p>';
+    box.innerHTML = h;
+  } catch (err) {
+    box.innerHTML = '<p class="hint">加载失败：' + esc(err.message) + '</p>';
+  }
+}
+
 async function loadStats() {
   loadCommonRoots();
   loadTopology();
+  loadDrift();
   const box = document.getElementById("stats-body");
   try {
     const r = await fetch("/api/stats");
