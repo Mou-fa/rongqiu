@@ -512,3 +512,23 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
 .crg-list li::before {
   content: "·"; position: absolute; left: 3px; color: var(--ink-3);
 }
+/* ---- 决策拓扑 ---- */
+.topo-edge { margin-bottom: 16px; }
+.topo-node {
+  font-size: 13px; color: var(--ink-2); font-weight: 600;
+  padding: 9px 13px; background: #f7f5f0;
+  border: 1px solid var(--line); border-radius: 9px;
+}
+.topo-arrow {
+  font-size: 15px; color: var(--accent); text-align: center;
+  margin: 3px 0; line-height: 1.3;
+}
+.topo-arrow span {
+  display: block; font-size: 10.5px; color: var(--ink-3);
+  font-weight: 400; margin-top: 1px;
+}
+.topo-cycle {
+  margin-top: 18px; padding: 14px 15px;
+  background: #fdf6ee; border: 1px solid #f0e2cd; border-radius: 11px;
+}
+.topo-cycle .label { margin: 0 0 6px; color: #b08a55; }

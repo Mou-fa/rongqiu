@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from rongqiu import calibration, common_root, crisis, environment, indexer, journal, node, nucleus, origin, questions, review, search  # noqa: E402
+from rongqiu import calibration, common_root, crisis, environment, indexer, journal, node, nucleus, origin, questions, review, search, topology  # noqa: E402
 
 app = FastAPI(title="绒球")
 STATIC = ROOT / "app" / "static"
@@ -193,6 +193,16 @@ def api_judge(body: JudgeBody):
     gap = calibration.gap_for(body.question, jd.get("confidence") or 0)
     return {"ok": True, "judgment": jd, "id": entry["id"],
             "resolve_by": entry["resolve_by"], "related": related, "gap": gap}
+
+
+@app.get("/api/topology")
+def api_topology():
+    """决策拓扑：哪些决定之间有依赖，谁在最上游。
+
+    只画结构。不排优先级，不说「所以先做哪个」。
+    原核解析有缓存（data/nucleus_cache.json），第一次会慢，之后是纯读文件。
+    """
+    return topology.analyze()
 
 
 @app.get("/api/common-root")

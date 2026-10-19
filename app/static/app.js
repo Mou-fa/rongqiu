@@ -585,8 +585,46 @@ async function loadCommonRoots() {
   }
 }
 
+// 决策拓扑：只画「谁影响谁」。
+// 不写「所以先做上游那个」——那是建议，不是结构。
+async function loadTopology() {
+  const box = document.getElementById("topology-body");
+  if (!box) return;
+  try {
+    const r = await fetch("/api/topology");
+    const d = await r.json();
+    if (!d.total_edges) {
+      box.innerHTML = '<p class="hint">还没有发现决定之间的依赖。' +
+        '当一个决定的结果出现在另一个决定的处境里，这里会连起来。</p>';
+      return;
+    }
+    let h = '<p class="hint" style="margin-bottom:14px">' +
+      '下面这些决定不是独立的：一个的结果，会变成另一个的接触面。</p>';
+    h += '<div class="topo-chains">';
+    d.edges.slice(0, 6).forEach(e => {
+      h += '<div class="topo-edge">' +
+        '<div class="topo-node">' + esc(truncate(e.from_q, 40)) + '</div>' +
+        '<div class="topo-arrow">↓<span>因为「' + esc(e.via) + '」出现在下一个决定的处境里</span></div>' +
+        '<div class="topo-node">' + esc(truncate(e.to_q, 40)) + '</div>' +
+        '</div>';
+    });
+    h += '</div>';
+    if (d.cycles && d.cycles.length) {
+      h += '<div class="topo-cycle"><div class="label">互相依赖</div>' +
+        '<p class="hint">下面这些决定彼此影响，没有先后可言。' +
+        '这不是错误，是一种需要被看到的状态。</p><ul class="crg-list">' +
+        d.cycles.map(c => '<li>' + esc(truncate(c.question, 46)) + '</li>').join("") +
+        '</ul></div>';
+    }
+    box.innerHTML = h;
+  } catch (err) {
+    box.innerHTML = '<p class="hint">加载失败：' + esc(err.message) + '</p>';
+  }
+}
+
 async function loadStats() {
   loadCommonRoots();
+  loadTopology();
   const box = document.getElementById("stats-body");
   try {
     const r = await fetch("/api/stats");
