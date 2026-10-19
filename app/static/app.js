@@ -553,7 +553,40 @@ async function doResolve(id, outcome, el) {
 }
 
 // ---------- 校准 ----------
+
+// 跨决定共同根因的全量视图。
+// 只列「哪些决定共享同一个面」。不写「所以该先解决它」。
+async function loadCommonRoots() {
+  const box = document.getElementById("common-root-body");
+  if (!box) return;
+  try {
+    const r = await fetch("/api/common-root");
+    const d = await r.json();
+    if (!d.total) {
+      box.innerHTML = '<p class="hint">还没有出现「共享同一个面」的不同决定。' +
+        '多做几次判断、让它们各自说出处境的细节，这里会慢慢长出来。</p>';
+      return;
+    }
+    let h = '<p class="hint" style="margin-bottom:14px">' +
+      '下面每组决定，看起来各不相同，但共享同一个第一接触面。</p>';
+    d.groups.slice(0, 8).forEach(g => {
+      h += '<div class="crg">' +
+        '<div class="crg-head"><span class="crg-surface">「' + esc(g.surface) + '」</span>' +
+        '<span class="crg-count">' + g.count + ' 个决定</span></div>' +
+        '<ul class="crg-list">' +
+        g.decisions.map(x => '<li>' + esc(truncate(x.question, 46)) + '</li>').join("") +
+        '</ul></div>';
+    });
+    h += '<p class="hint" style="margin-top:14px">' +
+      '同一个面出现在多个决定里，是结构事实，不是建议。</p>';
+    box.innerHTML = h;
+  } catch (err) {
+    box.innerHTML = '<p class="hint">加载失败：' + esc(err.message) + '</p>';
+  }
+}
+
 async function loadStats() {
+  loadCommonRoots();
   const box = document.getElementById("stats-body");
   try {
     const r = await fetch("/api/stats");
