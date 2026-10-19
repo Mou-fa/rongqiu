@@ -1,0 +1,12 @@
+# 绒球 · 运行时依赖
+#
+# Python 3.10+（代码用了 X | Y 这种联合类型写法）
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.0
+PyYAML>=6.0
+
+# 说明：
+# - LLM 调用走标准库 urllib，不需要 requests
+# - 图标生成脚本（scripts/make_icon.py）额外需要 Pillow 和 numpy，
+#   不装也不影响运行，见 requirements-optional.txt

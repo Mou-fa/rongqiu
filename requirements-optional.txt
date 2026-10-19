@@ -1,0 +1,4 @@
+# 可选依赖：只有跑图标生成脚本时才需要
+#   python scripts/make_icon.py
+Pillow>=10.0
+numpy>=1.26

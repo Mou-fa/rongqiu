@@ -37,10 +37,17 @@
 ## 快速开始
 
 ```powershell
-# 1. 安装依赖
-py -m pip install -r requirements.txt
+# 0. 需要 Python 3.10+
+python --version
 
-# 2. 配置搜索（可选，不配也能跑本地语料）
+# 1. 安装依赖
+pip install -r requirements.txt
+
+# 2. 配置模型（必填，否则只能跑本地语料）
+copy configs\llm.example.yaml configs\llm.yaml
+# 填入你的 API key（任何兼容 OpenAI 接口的服务都行）
+
+# 3. 配置搜索（可选）
 copy configs\search.example.yaml configs\search.yaml
 # 填入你的 Tavily key
 
@@ -133,6 +140,19 @@ python -m pytest tests -q
 ```powershell
 python scripts/eval_direction.py
 ```
+
+---
+
+## 许可证
+
+本项目使用 **GNU AGPL-3.0**。
+
+简单说：**你可以自由使用、修改、分发；但如果你把它改成在线服务，
+你的修改也必须同样开源。**
+
+这条协议是有意选的——绒球的核心是「不引导」，
+如果允许闭源改写，任何人都能加一个推荐算法再拿去做成商业产品，
+那这些红线就白写了。
 
 ---
 

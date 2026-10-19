@@ -9,7 +9,9 @@
 这样抗锯齿边缘也能保留。
 """
 
+import argparse
 import pathlib
+
 from PIL import Image
 import numpy as np
 
@@ -17,7 +19,12 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 STATIC = ROOT / "app" / "static"
 
-SRC = r"C:\Users\Administrator\.dsh\attachments\v1\objects\40\408260e18590715a295892d6a8b0868da49f606215388c9a40ec243d5084050c"
+# 原图路径由命令行传入：
+#     python scripts/make_icon.py 原图.png
+# 之前这里写死了一个本机绝对路径，开源时必须去掉。
+_ap = argparse.ArgumentParser(description="从原图生成绒球图标")
+_ap.add_argument("source", help="原图路径（黄底黑线）")
+SRC = _ap.parse_args().source
 YELLOW = (255, 255, 0)
 BLACK = (0, 0, 0)
 SIZE = 512

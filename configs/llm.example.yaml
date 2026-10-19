@@ -1,0 +1,9 @@
+# 复制成 configs/llm.yaml 后填入自己的 key（该文件已被 gitignore）
+#
+# 也可以用环境变量，优先级更高：
+#   $env:RONGQIU_LLM_KEY = "sk-..."
+#
+# 任何兼容 OpenAI /chat/completions 接口的服务都能用。
+base_url: https://api.deepseek.com
+model: deepseek-chat
+api_key: ""
