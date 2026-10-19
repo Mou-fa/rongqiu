@@ -102,6 +102,7 @@ rongqiu/
 
 | 文档 | 内容 |
 |---|---|
+| [**HANDOFF.md**](docs/HANDOFF.md) | **交接文档**：新会话先读这个。现状 / 七条原则 / 陷阱 / 下一步 |
 | [**PROPOSAL.md**](docs/PROPOSAL.md) | **立项书**：问题、主张、架构、里程碑、指标、风险 |
 | [**REDLINES.md**](docs/REDLINES.md) | **红线报告**：五条不可逾越条款 + 三条算法不变量 |
 | [**CAPABILITIES.md**](docs/CAPABILITIES.md) | **能力说明书**：13 项能力的判据、边界、与红线的关系 |
