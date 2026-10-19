@@ -3,7 +3,11 @@ const $ = (s) => document.querySelector(s);
 // 页面带 #soundscape 进来时，switchTab 在变量初始化之前就调用了 loadSoundscape。
 let SS_LOADED = false;
 let STATE = { nucleus: null, candidates: [], picked: new Set(), auto: null,
-              stated: [], env: [], coords: null, engaged: false, related: [] };
+              stated: [], env: [], coords: null, engaged: false, related: [],
+              // 上一次计算时用的输入快照。用来判断「现在选的这些，算进去了没有」。
+              // 没有它的时候，界面会显示「已选 2 条」但数字还是上一次的——
+              // 文案在说谎，这和之前「还原判断」那个 bug 是同一类。
+              computedSig: null };
 
 // 上次授权过的坐标记在本地，不用每次都问
 try {
@@ -37,6 +41,24 @@ const SOUND = {
   },
   playing() { return !!(this.el && !this.el.paused); },
 };
+
+// 输入快照：勾选了哪些场景、答了哪些问句。
+// 用它对比「当前输入」和「上次计算用的输入」。
+function inputSig() {
+  return JSON.stringify({
+    picked: [...(STATE.picked || [])].sort((a, b) => a - b),
+    answers: (STATE.answers || [])
+      .map(a => a.id + "=" + a.answer).sort(),
+  });
+}
+
+// 当前输入里，有多少条还没被算进去。
+// 只用来提示，不参与任何判断。
+function pendingCount() {
+  if (STATE.computedSig === null) return 0;
+  if (STATE.computedSig === inputSig()) return 0;
+  return (STATE.picked ? STATE.picked.size : 0) + (STATE.answers || []).length;
+}
 
 function show(id) {
   ["step-ask", "step-result", "step-crisis"].forEach(s => {
@@ -92,6 +114,8 @@ async function ask() {
     const dt = $("#btn-detail");
     if (dt) dt.textContent = "▸ 查看明细";
     renderAll(d);
+    // 自动判定只用了用户自述，勾选和回答都还没算
+    STATE.computedSig = inputSig();
     show("step-result");
   } catch (e) {
     alert("出错了：" + e.message);
@@ -307,6 +331,9 @@ function updateVerdict() {
     return;
   }
   const yes = j.lean === "yes";
+  // 输入变了但还没重算 → 这个结论是旧的，变淡提醒
+  const stale = pendingCount() > 0;
+  el.classList.toggle("stale", stale);
   // 结论是主角，按钮是配角。
   el.innerHTML =
     '<b style="color:' + (yes ? "var(--accent)" : "var(--warn)") + '">' +
@@ -404,6 +431,9 @@ function updateBar() {
     else parts.push("已选 0 条");
     if (nAns > 0) parts.push(nAns + " 条询问回答");
     parts.push(nSel === 0 && nAns === 0 ? "只用你自己说出的处境" : "");
+    // 已经点了、但还没重算 —— 必须说出来。
+    // 不说的话，用户会以为数字已经包含了他刚勾的那几条。
+    if (pendingCount() > 0) parts.push("尚未计入，点右侧重算");
     c.textContent = parts.filter(Boolean).join(" · ");
   }
 
@@ -457,6 +487,8 @@ async function judgeAgain() {
     if (note) note.classList.add("hidden");
     STATE.auto = d.judgment;
     STATE.related = d.related || [];
+    // 记下这次计算用了哪些输入。之后用户再勾选/再回答，就能对比出来「有没有算进去」。
+    STATE.computedSig = inputSig();
     renderRelated(STATE.related);
     renderGap(d.gap || null);
     renderStructure(d.judgment);

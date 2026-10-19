@@ -589,3 +589,5 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
   font-size: 11px; color: var(--ink-3); margin-top: 18px;
   padding-top: 12px; border-top: 1px dashed var(--line); line-height: 1.7;
 }
+/* 输入变了但还没重算：结论变淡，提醒它是旧的 */
+.bar-verdict.stale { opacity: .38; }
