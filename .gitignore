@@ -11,5 +11,7 @@ __pycache__/
 .venv/
 
 # 临时
+pytest-of-*/
+.pytest_cache/
 _*.txt
 _*.py
