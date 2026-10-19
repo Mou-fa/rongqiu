@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from rongqiu import crisis, environment, indexer, journal, node, nucleus, origin, questions, review, search  # noqa: E402
+from rongqiu import common_root, crisis, environment, indexer, journal, node, nucleus, origin, questions, review, search  # noqa: E402
 
 app = FastAPI(title="绒球")
 STATIC = ROOT / "app" / "static"
@@ -82,6 +82,7 @@ def api_ask(body: AskBody):
     # 系统先用 811 + REA 自己判一次，不要求用户做任何操作。
     # 「这些场景适用于我」本来就是假设槽该装的东西，系统可以自己承担这个假设。
     auto = None
+    related: list = []
     # 自动判定只用「用户自述」——那是他自己身上正在发生的事，是最硬的事实。
     #
     # 全网找到的内容是【提示】，不是证据：它们是文章、观点、统计，
@@ -109,6 +110,7 @@ def api_ask(body: AskBody):
             entry = journal.record(j, body.question, resolve_days=7)
             auto = j.as_dict()
             auto["id"] = entry["id"]
+            related = common_root.related_to(entry["id"])
 
     return {
         "nucleus": nu.as_dict(),
@@ -119,6 +121,8 @@ def api_ask(body: AskBody):
         "stated": [b.as_dict() for b in nu.background],
         "total_hits": len(results),
         "auto": auto,
+        # 跨决定共同根因：这个决定和别的决定共享的面（只陈述，不引导）
+        "related": related if stated else [],
         # 主动询问：问句来自 configs/questions.yaml，由用户确定，系统不发明。
         # 只问「发生过的、能被看见的」——不问为什么。
         # 环境讯息：只给界面展示，不参与任何计数
@@ -180,8 +184,21 @@ def api_judge(body: JudgeBody):
                 "message": "还没有可判断的第一接触面。勾选一条场景，"
                            "或者把你的处境写进问题里（比如「今天身体不舒服，要不要去聚餐」）。"}
     entry = journal.record(j, body.question, resolve_days=7)
+    # 跨决定共同根因：这个决定有没有和别的决定共享同一个面。
+    # 只陈述结构，不给建议。
+    related = common_root.related_to(entry["id"])
     return {"ok": True, "judgment": j.as_dict(), "id": entry["id"],
-            "resolve_by": entry["resolve_by"]}
+            "resolve_by": entry["resolve_by"], "related": related}
+
+
+@app.get("/api/common-root")
+def api_common_root(days: int = 90):
+    """跨决定共同根因：哪几个决定其实共享同一个第一接触面。
+
+    只陈述结构。不说「所以你该先解决它」——那是建议，不是判断。
+    """
+    groups = common_root.all_groups(days=days)
+    return {"groups": groups, "total": len(groups)}
 
 
 @app.get("/api/pending")

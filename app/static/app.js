@@ -1,6 +1,6 @@
 const $ = (s) => document.querySelector(s);
 let STATE = { nucleus: null, candidates: [], picked: new Set(), auto: null,
-              stated: [], env: [], coords: null, engaged: false };
+              stated: [], env: [], coords: null, engaged: false, related: [] };
 
 // 上次授权过的坐标记在本地，不用每次都问
 try {
@@ -46,6 +46,7 @@ async function ask() {
     STATE.nucleus = d.nucleus;
     STATE.candidates = d.candidates || [];
     STATE.auto = d.auto;
+    STATE.related = d.related || [];
     STATE.stated = d.stated || [];
     STATE.picked = new Set();
     STATE.engaged = false;   // 用户还没有任何输入，先不给倾向
@@ -96,6 +97,7 @@ function renderAll(d) {
     $("#stated-wrap").classList.add("hidden");
   }
 
+  renderRelated(STATE.related);
   renderStructure(STATE.auto);
   renderQuestions();
   renderPrompts();
@@ -312,6 +314,25 @@ function renderPrompts() {
   updateVerdict();
 }
 
+// 跨决定共同根因：只陈述「这几个决定共享同一个面」。
+// 绝不写「所以你应该先解决它」——那是建议，不是结构。
+function renderRelated(list) {
+  const box = $("#related-block");
+  if (!box) return;
+  const r = (list || [])[0];
+  if (!r) { box.innerHTML = ""; return; }
+  box.innerHTML =
+    '<div class="rel-card">' +
+      '<div class="label">跨决定</div>' +
+      '<p class="rel-lead">这个判断和另外 ' + r.count + ' 个决定，共享同一个面：</p>' +
+      '<p class="rel-surface">「' + esc(r.surface) + '」</p>' +
+      '<ul class="rel-list">' +
+        (r.decisions || []).map(d =>
+          '<li>' + esc(truncate(d.question, 42)) + '</li>').join("") +
+      '</ul>' +
+    '</div>';
+}
+
 function updateBar() {
   const nSel = STATE.picked.size;
   const nAns = (STATE.answers || []).length;
@@ -378,6 +399,8 @@ async function judgeAgain() {
     const note = $("#judge-note");
     if (note) note.classList.add("hidden");
     STATE.auto = d.judgment;
+    STATE.related = d.related || [];
+    renderRelated(STATE.related);
     renderStructure(d.judgment);
   } catch (e) {
     alert("出错了：" + e.message);
