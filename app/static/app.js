@@ -9,8 +9,9 @@ try {
 } catch (e) { /* 忽略 */ }
 
 function show(id) {
-  ["step-ask", "step-result"].forEach(s => {
-    $("#" + s).classList.toggle("hidden", s !== id);
+  ["step-ask", "step-result", "step-crisis"].forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.classList.toggle("hidden", s !== id);
   });
 }
 
@@ -40,6 +41,8 @@ async function ask() {
     const body = { question: q };
     if (STATE.coords) { body.lat = STATE.coords.lat; body.lon = STATE.coords.lon; }
     const d = await post("/api/ask", body);
+    // 安全例外：命中最优先。不进入任何判断流程。
+    if (d.crisis) { showCrisis(d); return; }
     STATE.nucleus = d.nucleus;
     STATE.candidates = d.candidates || [];
     STATE.auto = d.auto;
@@ -62,6 +65,16 @@ async function ask() {
   } finally {
     btn.disabled = false; btn.textContent = "开始判断";
   }
+}
+
+// 危机回应：只给渠道，不给安慰、不给分析、不给结构。
+// 文案来自服务端固定内容，前端不做任何发挥。
+function showCrisis(d) {
+  $("#crisis-lines").innerHTML = (d.hotlines || []).map(h =>
+    '<li><span class="ci-name">' + esc(h.name) + '</span>' +
+    '<a class="ci-num" href="tel:' + esc(h.number) + '">' + esc(h.number) + '</a></li>'
+  ).join("");
+  show("step-crisis");
 }
 
 function renderAll(d) {
@@ -380,6 +393,11 @@ $("#btn-detail").onclick = () => {
   const willOpen = box.classList.contains("hidden");
   box.classList.toggle("hidden", !willOpen);
   btn.textContent = willOpen ? "▾ 收起明细" : "▸ 查看明细";
+};
+
+$("#btn-crisis-back").onclick = () => {
+  $("#question").value = "";
+  show("step-ask");
 };
 
 $("#btn-again").onclick = () => {

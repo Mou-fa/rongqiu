@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from rongqiu import environment, indexer, journal, node, nucleus, origin, questions, review, search  # noqa: E402
+from rongqiu import crisis, environment, indexer, journal, node, nucleus, origin, questions, review, search  # noqa: E402
 
 app = FastAPI(title="绒球")
 STATIC = ROOT / "app" / "static"
@@ -61,6 +61,11 @@ class JudgeBody(BaseModel):
 
 @app.post("/api/ask")
 def api_ask(body: AskBody):
+    # 安全例外：命中最优先，短路一切流程。
+    # 见 docs/REDLINES.md 第三部分。
+    if crisis.detect(body.question):
+        return crisis.response()
+
     nu = nucleus.parse(body.question)
     cfg = search.load_config()
 
@@ -126,6 +131,10 @@ def api_ask(body: AskBody):
 
 @app.post("/api/judge")
 def api_judge(body: JudgeBody):
+    # 安全例外同样适用：任何一步输入命中，都立刻停。
+    if crisis.detect(body.question):
+        return crisis.response()
+
     # 主动询问的 yes/no 回答：方向由用户点击直接决定，不经过模型。
     # 必须单独建、单独放，不能混进 direction_of——否则用户点的 yes
     # 会被模型重新判一遍，可能改成中性甚至反对。
