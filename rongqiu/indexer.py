@@ -28,6 +28,48 @@ from .nucleus import Nucleus
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_PATH = ROOT / "data" / "triple_index.json"
 
+# 句末这几个标点表示「不是陈述句」
+_NON_DECL_END = "？！?!"
+
+# 祈使 / 建议类词汇。出现即拒绝。
+#
+# 为什么这条重要：祈使句本身就是一个「建议」，而建议在绒球里是零权重的东西，
+# 红线一还明确禁止系统给建议。一条「建议你不要参加聚餐」如果混进候选，
+# 用户点选后就变成了一条「事实」——那是把别人的建议洗成了自己的依据。
+_IMPERATIVE = (
+    "建议", "应该", "推荐", "最好", "一定要", "千万别",
+    "记得", "别忘", "不妨", "值得", "务必", "不妨试试",
+)
+
+DECL_MIN = 6      # 太短的没信息量
+DECL_MAX = 40     # 太长的不再是一句话
+
+
+def is_declarative(sentence: str, min_len: int = DECL_MIN,
+                   max_len: int = DECL_MAX) -> bool:
+    """这句话能不能作为第一接触面候选。
+
+    四类句型里，只有陈述句能入列：
+
+        陈述句  「我参加聚会后经常觉得累」   ✅
+        疑问句  「聚餐到底该不该去？」        ❌ 不是事实
+        祈使句  「建议你不要参加聚餐」        ❌ 是建议（红线一）
+        感叹句  「太累了吧！」                ❌ 情绪
+
+    注意：陈述句只是**必要条件**，不是充分条件。
+    观点、统计、泛化断言同样是陈述句（「参加聚会有助于维系人际关系」），
+    它们要靠下一级判据筛——「能不能拆出一个具体的 代理·事件·资源」。
+    这一步只负责句型，不负责语义。
+    """
+    s = str(sentence or "").strip()
+    if not s:
+        return False
+    if s[-1] in _NON_DECL_END:
+        return False
+    if any(w in s for w in _IMPERATIVE):
+        return False
+    return min_len <= len(s) <= max_len
+
 # 单次查询最多索引多少条。索引是整个链路最慢的一步，
 # 每次调用都要等模型——这个上限决定了用户等待时间的长短。
 MAX_INDEX_PER_QUERY = 18
@@ -303,6 +345,10 @@ def rank(nucleus: Nucleus, texts: list[tuple[str, str]],
         sentence = sentence_of(text, idx)
         if not sentence:
             # 没有可提炼内容的（登录页、广告），即使命中成分也丢掉
+            continue
+        if not is_declarative(sentence):
+            # 疑问 / 祈使 / 感叹句不能当第一接触面。
+            # 这是红线二的代码级落实：不是事实陈述的东西，不进候选。
             continue
         cand = match.Candidate(src, sentence, best_hits, best_matched)
         cand.raw = text
