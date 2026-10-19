@@ -47,6 +47,7 @@ async function ask() {
     STATE.candidates = d.candidates || [];
     STATE.auto = d.auto;
     STATE.related = d.related || [];
+    STATE.gap = null;
     STATE.stated = d.stated || [];
     STATE.picked = new Set();
     STATE.engaged = false;   // 用户还没有任何输入，先不给倾向
@@ -98,6 +99,7 @@ function renderAll(d) {
   }
 
   renderRelated(STATE.related);
+  renderGap(STATE.gap);
   renderStructure(STATE.auto);
   renderQuestions();
   renderPrompts();
@@ -333,6 +335,28 @@ function renderRelated(list) {
     '</div>';
 }
 
+// 校准缺口：只用陈述句。
+// 不写「所以你应该降低预期」——那是建议。写「你给了 90%，过去同类命中 0%」。
+function renderGap(g) {
+  const box = $("#gap-block");
+  if (!box) return;
+  if (!g) { box.innerHTML = ""; return; }
+  const dir = g.direction === "over" ? "高估" : "低估";
+  box.innerHTML =
+    '<div class="gap-card">' +
+      '<div class="label">校准缺口</div>' +
+      '<p class="gap-line">' +
+        '这一类（' + esc(g.category) + '）你给了 <b>' +
+        Math.round(g.current_confidence * 100) + '%</b> 的把握。' +
+      '</p>' +
+      '<p class="gap-hist">过去 ' + g.samples + ' 条同类判断，你平均给 ' +
+        Math.round(g.mean_confidence * 100) + '%，实际命中 ' +
+        Math.round(g.hit_rate * 100) + '%。' +
+      '</p>' +
+      '<p class="gap-tag">方向：' + dir + '</p>' +
+    '</div>';
+}
+
 function updateBar() {
   const nSel = STATE.picked.size;
   const nAns = (STATE.answers || []).length;
@@ -401,6 +425,7 @@ async function judgeAgain() {
     STATE.auto = d.judgment;
     STATE.related = d.related || [];
     renderRelated(STATE.related);
+    renderGap(d.gap || null);
     renderStructure(d.judgment);
   } catch (e) {
     alert("出错了：" + e.message);
@@ -581,6 +606,22 @@ async function loadStats() {
           Math.round(d * 100) + '%</span></div>';
       });
       h += '</div><p class="hint">811 的检验：N=8 那行的命中率，应该接近 80%。</p>';
+    }
+    if (s.by_category && s.by_category.length) {
+      h += '<div class="label" style="margin-top:20px">按决定类型</div>';
+      h += '<div class="tbl"><div class="tr th"><span>类型</span>' +
+        '<span>样本</span><span>平均置信</span><span>命中率</span><span>缺口</span></div>';
+      s.by_category.forEach(c => {
+        const g = Math.round((c.gap || 0) * 100);
+        h += '<div class="tr"><span>' + esc(c.category) + '</span>' +
+          '<span>' + c.samples + '</span>' +
+          '<span>' + Math.round((c.mean_confidence || 0) * 100) + '%</span>' +
+          '<span>' + Math.round((c.hit_rate || 0) * 100) + '%</span>' +
+          '<span class="' + (g >= 0 ? "pos" : "neg") + '">' +
+          (g >= 0 ? "+" : "") + g + '%</span></div>';
+      });
+      h += '</div><p class="hint">缺口 = 命中率 − 平均置信。负数 = 高估自己。' +
+        ' 少于 5 条样本的类型不预警。</p>';
     }
     box.innerHTML = h;
   } catch (err) {

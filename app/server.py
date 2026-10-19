@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from rongqiu import common_root, crisis, environment, indexer, journal, node, nucleus, origin, questions, review, search  # noqa: E402
+from rongqiu import calibration, common_root, crisis, environment, indexer, journal, node, nucleus, origin, questions, review, search  # noqa: E402
 
 app = FastAPI(title="绒球")
 STATIC = ROOT / "app" / "static"
@@ -187,8 +187,12 @@ def api_judge(body: JudgeBody):
     # 跨决定共同根因：这个决定有没有和别的决定共享同一个面。
     # 只陈述结构，不给建议。
     related = common_root.related_to(entry["id"])
-    return {"ok": True, "judgment": j.as_dict(), "id": entry["id"],
-            "resolve_by": entry["resolve_by"], "related": related}
+    jd = j.as_dict()
+    # 校准缺口：这一类历史上的命中率 vs 平均置信度。
+    # 只说「你以前是什么样」，不说「你这次该怎样」。样本不足时返回 None。
+    gap = calibration.gap_for(body.question, jd.get("confidence") or 0)
+    return {"ok": True, "judgment": jd, "id": entry["id"],
+            "resolve_by": entry["resolve_by"], "related": related, "gap": gap}
 
 
 @app.get("/api/common-root")
@@ -256,7 +260,9 @@ def api_stats():
             "mean_confidence": s["mean_confidence"],
             "calibration_gap": s["calibration_gap"],
             "reliability": s["reliability"], "by_n": s["by_n"],
-            "by_rule": s["by_rule"], "base_rate": s.get("base_rate")}
+            "by_rule": s["by_rule"], "base_rate": s.get("base_rate"),
+            # 按决定类型的校准缺口（立项书 6.6）
+            "by_category": calibration.by_category()}
 
 
 @app.get("/")
