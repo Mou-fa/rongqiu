@@ -1,0 +1,77 @@
+# 绒球 · 声景库
+#
+# 见 docs/PROPOSAL.md 第九章。四条硬约束：
+#   1. 物理隔离 —— 判断流程中绝对静音（由前端强制，配置文件管不了）
+#   2. 不个性化 —— 只能按时刻组织，不能按用户状态
+#   3. 不宣称治疗 —— 选曲理由只描述音乐，不描述病（由 soundscape.py 校验）
+#   4. 默认关闭 —— 用户主动打开
+#
+# 每个曲目四个字段：
+#   title     曲名
+#   duration  时长 mm:ss
+#   moment    时刻标签（只能是下面六个之一）
+#   note      选曲理由，一句，不超过 30 字，只描述音乐本身
+#
+# 可选：
+#   url       音频地址。留空 = 策展位已留、音频未接入
+#   source    来源与授权
+#
+# 禁止在 note 里写：治疗 / 疗愈 / 缓解 / 改善 / 焦虑 / 抑郁 / 失眠 /
+#   助眠 / 疗效 / 医学 / 处方。校验器会拒绝这类条目。
+
+moments:
+  - id: dawn
+    name: 清晨
+  - id: noon
+    name: 午后
+  - id: night
+    name: 深夜
+  - id: rain
+    name: 雨天
+  - id: commute
+    name: 通勤
+  - id: alone
+    name: 独处
+
+tracks:
+  - title: 晨光（策展位）
+    duration: "3:40"
+    moment: dawn
+    note: 起音低、没有突然的高音，适合还没完全醒的时候
+    url: ""
+    source: 待接入（CC0 授权池）
+
+  - title: 长午后（策展位）
+    duration: "5:12"
+    moment: noon
+    note: 无歌词，节奏平，不抢注意力
+    url: ""
+    source: 待接入（CC0 授权池）
+
+  - title: 留白（策展位）
+    duration: "6:05"
+    moment: night
+    note: 低音为主，中间有较长的静默段落
+    url: ""
+    source: 待接入（CC0 授权池）
+
+  - title: 窗边雨（策展位）
+    duration: "8:20"
+    moment: rain
+    note: 环境音，没有旋律线，可以随时中断
+    url: ""
+    source: 待接入（CC0 授权池）
+
+  - title: 步行节拍（策展位）
+    duration: "4:30"
+    moment: commute
+    note: 节奏稳定，约等于快走的速度
+    url: ""
+    source: 待接入（CC0 授权池）
+
+  - title: 一个人的房间（策展位）
+    duration: "7:15"
+    moment: alone
+    note: 单乐器，音少，留白多
+    url: ""
+    source: 待接入（CC0 授权池）

@@ -170,7 +170,7 @@ footer { text-align: center; color: var(--ink-3); font-size: 12px; margin-top: 2
 .refine span { font-size: 12.5px; color: var(--ink-2); flex: 1; min-width: 160px; }
 button.ghost.small { width: auto; margin: 0; padding: 8px 16px; font-size: 13px; }
 /* ---- 标签页 ---- */
-.tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+.tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px; margin-bottom: 14px; width: 100%; }
 .tabs button {
   min-width: 0; width: 100%; background: transparent; border: 1px solid var(--line);
@@ -400,7 +400,7 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
   .main, .aside { width: 100%; min-width: 0; }
   .panel { width: 100%; max-width: 100%; }
   .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   /* 长串文字强制换行，不许撑开 */
   .svo, .evidence li, .slot, .split-line, .dropline, .cand .txt, .qtxt {
     overflow-wrap: anywhere; word-break: break-word;
@@ -412,7 +412,7 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
   .layout { display: block; }
   .main, .aside { width: 100%; min-width: 0; }
   .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   /* 长串文字强制换行，不许撑开容器 */
   .svo, .evidence li, .slot, .split-line, .dropline, .cand .txt, .qtxt {
     overflow-wrap: anywhere; word-break: break-word;
@@ -554,3 +554,38 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
 }
 .drift-cell.on { border-color: var(--accent); color: var(--accent); font-weight: 700; }
 .drift-arrow { color: var(--ink-3); }
+/* ---- 声景 ---- */
+.ss-intro {
+  font-size: 14px; color: var(--ink-2); margin: 0 0 6px;
+  letter-spacing: .2px;
+}
+.ss-rule {
+  font-size: 11.5px; color: var(--ink-3); margin: 0 0 20px;
+  padding-bottom: 14px; border-bottom: 1px dashed var(--line);
+}
+.ss-group { margin-bottom: 22px; }
+.ss-moment {
+  font-size: 12.5px; font-weight: 700; color: var(--ink-2);
+  margin: 0 0 9px; letter-spacing: 1px;
+}
+.ss-track {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 11px 13px; margin-bottom: 8px;
+  background: #f7f5f0; border: 1px solid var(--line); border-radius: 10px;
+}
+.ss-track.off { opacity: .55; }
+.ss-play {
+  flex: none; width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--line); background: #fff; color: var(--ink-3);
+  font-size: 11px; cursor: pointer; line-height: 1;
+}
+.ss-play:disabled { cursor: default; opacity: .5; }
+.ss-body { flex: 1; min-width: 0; }
+.ss-title { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.ss-dur { font-size: 11px; color: var(--ink-3); margin-left: 7px; font-weight: 400; }
+.ss-note { font-size: 12px; color: var(--ink-3); margin-top: 3px; line-height: 1.6; }
+.ss-src { font-size: 10.5px; color: #b9a67e; margin-top: 3px; }
+.ss-foot {
+  font-size: 11px; color: var(--ink-3); margin-top: 18px;
+  padding-top: 12px; border-top: 1px dashed var(--line); line-height: 1.7;
+}

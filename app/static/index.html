@@ -23,6 +23,7 @@
         <button data-tab="ask" class="on">判断</button>
         <button data-tab="pending">回收<span id="due-badge" class="badge hidden"></span></button>
         <button data-tab="stats">校准</button>
+        <button data-tab="soundscape">声景</button>
       </nav>
 
       <section id="step-ask" class="panel tabpane">
@@ -99,6 +100,13 @@
 
         <div class="label" style="margin-top:26px">判断漂移</div>
         <div id="drift-body"><p class="hint">加载中…</p></div>
+      </section>
+
+      <section id="step-soundscape" class="panel hidden tabpane">
+        <div class="label">声景</div>
+        <p class="ss-intro">不是你该听什么，是此刻有什么。</p>
+        <p class="ss-rule">按时刻组织，不按你的状态。判断时不会播放。</p>
+        <div id="soundscape-body"><p class="hint">加载中…</p></div>
       </section>
 
       <footer>判断是趋近值，不是断言</footer>

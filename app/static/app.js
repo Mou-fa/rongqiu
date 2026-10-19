@@ -1,4 +1,7 @@
 const $ = (s) => document.querySelector(s);
+// 声景是否已加载。必须在这里声明——放在 switchTab 后面会踩 TDZ：
+// 页面带 #soundscape 进来时，switchTab 在变量初始化之前就调用了 loadSoundscape。
+let SS_LOADED = false;
 let STATE = { nucleus: null, candidates: [], picked: new Set(), auto: null,
               stated: [], env: [], coords: null, engaged: false, related: [] };
 
@@ -7,6 +10,33 @@ try {
   const saved = localStorage.getItem("rq_coords");
   if (saved) STATE.coords = JSON.parse(saved);
 } catch (e) { /* 忽略 */ }
+
+// ---------------------------------------------------------------
+// 声景播放器。
+//
+// 它只有一个职责：确保声音不会跑到判断流程里去。
+// 音乐改变情绪，情绪改变判断——那不叫氛围，那叫污染。
+//
+// 所以：离开声景页立刻停；开始判断立刻停；出结果立刻停；危机界面立刻停。
+// ---------------------------------------------------------------
+const SOUND = {
+  el: null,
+  url: "",
+  stop() {
+    if (this.el) {
+      try { this.el.pause(); this.el.currentTime = 0; } catch (e) { /* 忽略 */ }
+    }
+    this.url = "";
+  },
+  play(track) {
+    if (!track || !track.url) return false;
+    if (!this.el) { this.el = new Audio(); }
+    if (this.url !== track.url) { this.el.src = track.url; this.url = track.url; }
+    this.el.play().catch(() => { /* 浏览器不允许自动播放时静默失败 */ });
+    return true;
+  },
+  playing() { return !!(this.el && !this.el.paused); },
+};
 
 function show(id) {
   ["step-ask", "step-result", "step-crisis"].forEach(s => {
@@ -35,6 +65,7 @@ document.querySelectorAll(".chip").forEach(b => {
 async function ask() {
   const q = $("#question").value.trim();
   if (!q) return;
+  SOUND.stop();   // 物理隔离：判断流程中绝对静音
   const btn = $("#btn-ask");
   btn.disabled = true; btn.textContent = "正在检索和判断…（约 20-40 秒）";
   try {
@@ -72,6 +103,7 @@ async function ask() {
 // 危机回应：只给渠道，不给安慰、不给分析、不给结构。
 // 文案来自服务端固定内容，前端不做任何发挥。
 function showCrisis(d) {
+  SOUND.stop();
   $("#crisis-lines").innerHTML = (d.hotlines || []).map(h =>
     '<li><span class="ci-name">' + esc(h.name) + '</span>' +
     '<a class="ci-num" href="tel:' + esc(h.number) + '">' + esc(h.number) + '</a></li>'
@@ -402,6 +434,7 @@ async function judgeAgain() {
 
   const selected = [...STATE.picked].sort((a, b) => a - b)
     .map(i => ({ text: STATE.candidates[i].text, source: STATE.candidates[i].source }));
+  SOUND.stop();   // 物理隔离：出结果时也不能有声音
   const stated = STATE.stated.map(b => ({
     text: b.agent + " " + b.event + " " + b.resource,
   }));
@@ -472,7 +505,7 @@ show("step-ask");
 loadEnv();                 // 便签先出时间，不等判断
 
 const TAB0 = (location.hash || "").replace("#", "");
-if (TAB0 === "pending" || TAB0 === "stats") switchTab(TAB0);
+if (TAB0 === "pending" || TAB0 === "stats" || TAB0 === "soundscape") switchTab(TAB0);
 
 const Q0 = new URLSearchParams(location.search).get("q");
 if (Q0) { $("#question").value = Q0; ask(); }
@@ -481,14 +514,60 @@ function switchTab(name) {
   document.querySelectorAll(".tabs button").forEach(b => {
     b.classList.toggle("on", b.dataset.tab === name);
   });
-  ["ask", "pending", "stats"].forEach(t => {
-    const sec = t === "ask"
-      ? document.getElementById("step-ask")
-      : document.getElementById("step-" + t);
+  ["ask", "pending", "stats", "soundscape"].forEach(t => {
+    const sec = document.getElementById("step-" + t);
     if (sec) sec.classList.toggle("hidden", t !== name);
   });
+  // 声景只在声景页存在。离开就停——这是约束一的一半。
+  if (name !== "soundscape") SOUND.stop();
   if (name === "pending") loadPending();
   if (name === "stats") loadStats();
+  if (name === "soundscape") loadSoundscape();
+}
+
+// ---------- 声景 ----------
+async function loadSoundscape() {
+  const box = document.getElementById("soundscape-body");
+  if (!box || SS_LOADED) return;
+  try {
+    const r = await fetch("/api/soundscape");
+    const d = await r.json();
+    let h = '';
+    d.groups.forEach(g => {
+      h += '<div class="ss-group"><div class="ss-moment">' + esc(g.name) + '</div>';
+      g.tracks.forEach(t => {
+        h += '<div class="ss-track' + (t.playable ? '' : ' off') + '">' +
+          '<button class="ss-play" ' + (t.playable ? '' : 'disabled') + '>▶</button>' +
+          '<div class="ss-body">' +
+            '<div class="ss-title">' + esc(t.title) +
+              '<span class="ss-dur">' + esc(t.duration) + '</span></div>' +
+            '<div class="ss-note">' + esc(t.note) + '</div>' +
+            (t.source ? '<div class="ss-src">' + esc(t.source) + '</div>' : '') +
+          '</div></div>';
+      });
+      h += '</div>';
+    });
+    h += '<div class="ss-foot">按时刻组织，不按你的状态。<br>' +
+      '不收费 · 不做个性化 · 不产生任何使用数据。<br>' +
+      '判断流程中不会播放——音乐改变情绪，情绪改变判断。</div>';
+    box.innerHTML = h;
+
+    // 绑定播放（只有接了音频的才可点）
+    let idx = 0;
+    const flat = [];
+    d.groups.forEach(g => g.tracks.forEach(t => flat.push(t)));
+    box.querySelectorAll(".ss-play").forEach(btn => {
+      const t = flat[idx++];
+      btn.onclick = () => {
+        if (!t || !t.playable) return;
+        if (SOUND.url === t.url && SOUND.playing()) { SOUND.stop(); btn.textContent = "▶"; }
+        else if (SOUND.play(t)) { btn.textContent = "❚❚"; }
+      };
+    });
+    SS_LOADED = true;
+  } catch (err) {
+    box.innerHTML = '<p class="hint">加载失败：' + esc(err.message) + '</p>';
+  }
 }
 
 document.querySelectorAll(".tabs button").forEach(b => {
