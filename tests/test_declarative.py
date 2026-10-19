@@ -87,3 +87,26 @@ def test_too_long_rejected():
 def test_opinion_is_still_declarative():
     """观点也是陈述句。这一步只筛句型，语义由 REA 可填性在下一级管。"""
     assert indexer.is_declarative("参加聚会有助于维系人际关系") is True
+
+
+# ---------- 提示词回归 ----------
+# 提示词是「第二级过滤」。它一旦被人改回去，第一级只剩 94% 的覆盖率，
+# 而且语义层的伪陈述（观点/统计/泛化）会全部漏回来。
+# 这几条测试是给提示词上的锁。
+
+@pytest.mark.parametrize("prompt", [indexer.SYSTEM, indexer.BATCH_SYSTEM])
+def test_prompt_requires_declarative(prompt):
+    assert "陈述句" in prompt
+    assert "问号" in prompt
+
+
+@pytest.mark.parametrize("prompt", [indexer.SYSTEM, indexer.BATCH_SYSTEM])
+def test_prompt_has_rea_criterion(prompt):
+    """唯一可操作的判据：能不能拆出「谁·做了什么·对什么」。"""
+    assert "谁" in prompt and "做了什么" in prompt and "对什么" in prompt
+
+
+@pytest.mark.parametrize("prompt", [indexer.SYSTEM, indexer.BATCH_SYSTEM])
+def test_prompt_rejects_pseudo_facts(prompt):
+    for kind in ["疑问句", "祈使句", "感叹句", "观点", "统计", "泛化"]:
+        assert kind in prompt, f"提示词里少了拒收类型：{kind}"
