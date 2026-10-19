@@ -1,0 +1,138 @@
+# 绒球 · Rongqiu
+
+> **不告诉你该怎么做，只让你看清自己在拿什么做决定。**
+
+一个个人决策校准系统。你带着一个正在犹豫的问题进来，
+它把问题拆成结构，给出一个参考倾向和置信度，记录归档，
+到期回来问你「那件事最后发生了吗」，然后形成你自己的校准曲线。
+
+**它不给建议，不预测未来，不替你决定。**
+
+---
+
+## 它做什么
+
+```
+输入：一句自然语言的犹豫
+  ↓
+拆主谓宾 → 找第一接触面 → 二元判向 → 计数
+  ↓
+输出：N 个事实面 + 1 个半知 + 1 个未知
+      可确定 ≤ 80% 的参考倾向
+  ↓
+沉淀：判断归档 → 到期回收 → 个人校准曲线
+```
+
+## 四条设计原则
+
+| 原则 | 含义 |
+|---|---|
+| **他人观点零权重** | 只有你自己的陈述和真实发生的交换算事实 |
+| **事实二元** | 支持或反对，中性只存在于半知和未知 |
+| **80% 封顶** | N 再多也超不过 80%，那 20% 永远拿不到 |
+| **不引导** | 只给结构，不给方向建议 |
+
+---
+
+## 快速开始
+
+```powershell
+# 1. 安装依赖
+py -m pip install -r requirements.txt
+
+# 2. 配置搜索（可选，不配也能跑本地语料）
+copy configs\search.example.yaml configs\search.yaml
+# 填入你的 Tavily key
+
+# 3. 启动
+.\scripts\serve.ps1
+```
+
+打开 `http://127.0.0.1:8780`。
+手机同网段访问：`http://<你的局域网IP>:8780`（见 [docs/LAN.md](docs/LAN.md)）
+
+---
+
+## 目录结构
+
+```
+rongqiu/
+  rongqiu/              核心库
+    nucleus.py          主谓宾抽取
+    extract.py          背景事实抽取
+    indexer.py          三元组索引与检索
+    questions.py        固定询问面
+    review.py           方向判定（二元）
+    node.py             811 结构计算
+    journal.py          归档、回收、校准
+    environment.py      环境讯息（只展示不计面）
+    search.py           多源检索
+  app/                  Web 应用
+    server.py           FastAPI
+    static/             前端
+  configs/
+    questions.yaml      问句库
+    search.yaml         搜索配置（不入库）
+  data/                 语料、索引、判断日志（不入库）
+  scripts/              工具脚本
+  tests/                61 个测试
+  docs/                 全部文档
+```
+
+---
+
+## 文档
+
+| 文档 | 内容 |
+|---|---|
+| [**PROPOSAL.md**](docs/PROPOSAL.md) | **立项书**：问题、主张、架构、里程碑、指标、风险 |
+| [**REDLINES.md**](docs/REDLINES.md) | **红线报告**：五条不可逾越条款 + 三条算法不变量 |
+| [THEORY.md](docs/THEORY.md) | 理论：811、第一接触面、二元对立、分形 |
+| [FOUNDATIONS.md](docs/FOUNDATIONS.md) | 理论支撑：马尔可夫毯、Ashby、校准研究等 |
+| [AUDIT.md](docs/AUDIT.md) | 自查记录 |
+| [PRIVACY.md](docs/PRIVACY.md) | 数据与隐私 |
+| [LAN.md](docs/LAN.md) | 手机访问与网络排查 |
+| [ICON.md](docs/ICON.md) | 图标来源与生成方式 |
+
+---
+
+## 当前状态
+
+| 项 | 状态 |
+|---|---|
+| 版本 | M0 · 可运行原型 |
+| 判向准确率 | 96%（25 题评测集） |
+| 测试 | 61 个，全绿 |
+| 本地语料 | 39 条 |
+| 三元组索引 | 609 条 |
+| 判断日志 | 166 条 |
+| 手机访问 | ✅ 同网段可用 |
+
+### 下一步
+
+- [ ] **M1**：让 11 参与计算（翻转阈值 / 脆弱点 / 缺口提示）
+- [ ] **M2**：校准闭环跑通（真实回收数据）
+- [ ] **M3**：移动端体验、语音输入、本地优先
+- [ ] **M4**：组织版、机构版、教育版
+
+---
+
+## 测试
+
+```powershell
+python -m pytest tests -q
+```
+
+## 评测
+
+```powershell
+python scripts/eval_direction.py
+```
+
+---
+
+## 底线
+
+**这个项目最值钱的不是代码，是它守不守得住 [REDLINES.md](docs/REDLINES.md)。**
+
+**代码可以重写，红线丢了就长不回来。**
