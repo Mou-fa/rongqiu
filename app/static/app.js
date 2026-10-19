@@ -332,8 +332,7 @@ function updateVerdict() {
   }
   const yes = j.lean === "yes";
   // 输入变了但还没重算 → 这个结论是旧的，变淡提醒
-  const stale = pendingCount() > 0;
-  el.classList.toggle("stale", stale);
+  el.classList.toggle("stale", pendingCount() > 0 && !JUDGING);
   // 结论是主角，按钮是配角。
   el.innerHTML =
     '<b style="color:' + (yes ? "var(--accent)" : "var(--warn)") + '">' +
@@ -363,10 +362,13 @@ function renderPrompts() {
     el.className = "cand";
     el.innerHTML = '<div class="box">✓</div><div><div class="txt">' + esc(truncate(c.text, 90)) +
       '</div><div class="src">命中 ' + c.hits + '/3 成分 · 原文已浓缩</div></div>';
-    el.onclick = () => {
+    // 勾选后自动重算。和答问句保持一致——
+    // 不一致会让用户猜「这几个算进去了没有」。
+    el.onclick = async () => {
       if (STATE.picked.has(i)) STATE.picked.delete(i); else STATE.picked.add(i);
       el.classList.toggle("on");
       updateBar();
+      await judgeAgain();
     };
     list.appendChild(el);
   });
@@ -433,7 +435,8 @@ function updateBar() {
     parts.push(nSel === 0 && nAns === 0 ? "只用你自己说出的处境" : "");
     // 已经点了、但还没重算 —— 必须说出来。
     // 不说的话，用户会以为数字已经包含了他刚勾的那几条。
-    if (pendingCount() > 0) parts.push("尚未计入，点右侧重算");
+    // 正在算的时候不提示，因为按钮上已经写着「计算中…」了。
+    if (pendingCount() > 0 && !JUDGING) parts.push("尚未计入，点右侧重算");
     c.textContent = parts.filter(Boolean).join(" · ");
   }
 
@@ -456,11 +459,30 @@ function metric(k, v) {
   return '<div class="metric"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>';
 }
 
+// 自动重算的两个保护：
+//   JUDGING    —— 正在算的时候再点，不并发发请求，只记一个「算完再来一次」
+//   JUDGE_RERUN —— 那个「再来一次」的标记
+// 没有这两个，连勾三个候选会并发三次模型调用。
+let JUDGING = false;
+let JUDGE_RERUN = false;
+
 async function judgeAgain() {
   // 只有真的提供了输入（勾了场景或答了询问），才算用户参与过。
   // 什么都没选就点「重算」，出来的结果和初始状态一样，
   // 那就不该显示倾向——否则「还原」会还原出一个结论来。
   STATE.engaged = (STATE.picked.size > 0 || (STATE.answers || []).length > 0);
+
+  // 回到初始状态：没有勾选、没有回答、也没有用户自述 —— 什么都不用算
+  if (!STATE.engaged && STATE.stated.length === 0) {
+    updateBar();
+    updateVerdict();
+    return;
+  }
+
+  if (JUDGING) { JUDGE_RERUN = true; return; }
+  JUDGING = true;
+  const btn = $("#btn-judge");
+  if (btn) { btn.textContent = "计算中…"; btn.disabled = true; }
 
   const selected = [...STATE.picked].sort((a, b) => a - b)
     .map(i => ({ text: STATE.candidates[i].text, source: STATE.candidates[i].source }));
@@ -495,7 +517,10 @@ async function judgeAgain() {
   } catch (e) {
     alert("出错了：" + e.message);
   } finally {
+    JUDGING = false;
     updateBar();
+    // 算的时候又点过（改了输入）→ 再算一次，保证数字和输入一致
+    if (JUDGE_RERUN) { JUDGE_RERUN = false; judgeAgain(); }
   }
 }
 
