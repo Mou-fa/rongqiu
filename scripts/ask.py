@@ -87,8 +87,9 @@ def main(argv=None) -> int:
     print("-" * 68)
 
     if not args.no_record:
-        entry = journal.record(j, args.question, resolve_days=7)
-        print(f"\n已入档：{entry['id']}   7 天后回收结果")
+        days = journal.resolve_days_for(args.question)
+        entry = journal.record(j, args.question, resolve_days=days)
+        print(f"\n已入档：{entry['id']}   {days} 天后回收结果")
     return 0
 
 

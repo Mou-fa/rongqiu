@@ -23,7 +23,8 @@ def test_resolve_window_follows_the_question():
     """今晚的决定明天就能回收，不该等七天。"""
     assert journal.resolve_days_for("今晚要不要去聚餐") == 1
     assert journal.resolve_days_for("明天去不去") == 1
-    assert journal.resolve_days_for("最近要不要换工作") == 7
+    assert journal.resolve_days_for("最近要不要换工作") == 3
+    assert journal.resolve_days_for("周末要不要出门") == 7
     assert journal.resolve_days_for("这个月要不要买手机") == 30
 
 

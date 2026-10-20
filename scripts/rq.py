@@ -109,7 +109,8 @@ def main(argv=None) -> int:
     p = sub.add_parser("judge", help="做一次判断并入库")
     p.add_argument("--question", required=True)
     p.add_argument("--text", action="append", required=True, help="来源|内容")
-    p.add_argument("--resolve-days", type=int, default=7)
+    p.add_argument("--resolve-days", type=int, default=None,
+                   help="不填则按问题里的时间词自动定（默认 3 天）")
     p.add_argument("--runs", type=int, default=3,
                    help="共识抽取次数。1 = 单次（快但不稳），3 = 默认")
     p.add_argument("--min-freq", type=float, default=0.6,

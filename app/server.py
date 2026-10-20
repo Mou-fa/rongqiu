@@ -108,7 +108,7 @@ def api_ask(body: AskBody):
             unknown="我这次的具体情况，以及我还没说出来的约束")
         j = nd.judge()
         if j is not None:
-            entry = journal.record(j, body.question, resolve_days=7)
+            entry = journal.record(j, body.question)
             auto = j.as_dict()
             auto["id"] = entry["id"]
             related = common_root.related_to(entry["id"])
@@ -199,7 +199,7 @@ def api_judge(body: JudgeBody):
         return {"ok": False, "need": "surface",
                 "message": "还没有可判断的第一接触面。勾选一条场景，"
                            "或者把你的处境写进问题里（比如「今天身体不舒服，要不要去聚餐」）。"}
-    entry = journal.record(j, body.question, resolve_days=7)
+    entry = journal.record(j, body.question)
     # 跨决定共同根因：这个决定有没有和别的决定共享同一个面。
     # 只陈述结构，不给建议。
     related = common_root.related_to(entry["id"])
