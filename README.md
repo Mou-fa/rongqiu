@@ -159,6 +159,17 @@ python scripts/eval_direction.py
 
 ---
 
+## 参与贡献
+
+**技术开放，理念不开放。**
+
+欢迎 bug 修复、测试、文档、翻译、问句候选、隐私增强；
+不接受任何改变核心思想与红线的改动——那些要走 [REDLINES.md](docs/REDLINES.md) 第六部分的程序，不是 PR。
+
+详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+---
+
 ## 许可证
 
 本项目使用 **GNU AGPL-3.0**。
