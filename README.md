@@ -107,6 +107,7 @@ rongqiu/
 | [**REDLINES.md**](docs/REDLINES.md) | **红线报告**：五条不可逾越条款 + 三条算法不变量 |
 | [**DATA-CONSTITUTION.md**](docs/DATA-CONSTITUTION.md) | **数据宪法**：留形状不留内容；司法/政府请求怎么答；全球化数据架构 |
 | [**CAPABILITIES.md**](docs/CAPABILITIES.md) | **能力说明书**：13 项能力的判据、边界、与红线的关系 |
+| [COMPETITORS.md](docs/COMPETITORS.md) | 竞品跟踪：国内外理念相近的产品、差异与威胁模型 |
 | [THEORY.md](docs/THEORY.md) | 理论：811、第一接触面、二元对立、分形 |
 | [FOUNDATIONS.md](docs/FOUNDATIONS.md) | 理论支撑：马尔可夫毯、Ashby、校准研究等 |
 | [VOICE.md](docs/VOICE.md) | 语音三层与第三层设计（研究线） |

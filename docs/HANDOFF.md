@@ -30,6 +30,7 @@
 | 6 | [CAPABILITIES.md](CAPABILITIES.md) | 13 项能力的判据和边界 |
 | 7 | [FOUNDATIONS.md](FOUNDATIONS.md) | 理论出处（马尔可夫毯等） |
 | 8 | [VOICE.md](VOICE.md) | 语音三层与第三层设计（研究线，不阻塞主链路） |
+| 9 | [COMPETITORS.md](COMPETITORS.md) | 竞品跟踪（季度更新；市场扫描，不是必读） |
 
 **时间紧就只读 1、2。**
 
@@ -240,7 +241,7 @@ python scripts/gh.py info     # 看 GitHub 仓库状态
 - **M1 第一版**：按原核挑面（`questions.select`）、未答面进半知、翻转阈值（`node.flip_distance`）
 - **开发期工具**：`mine_surfaces.py`（矿工）、`classify_corpus.py`、`draft_questions.py`、`import_questions.py`、`label_mk.py`
 - **修复**：搜索缓存 key 用 `hash()` 导致跨进程永不命中（改 sha1）
-- **新增**：[VOICE.md](VOICE.md)（语音三层设计）、[DATA-CONSTITUTION.md](DATA-CONSTITUTION.md)（数据宪法）、[taxonomy.yaml](../configs/taxonomy.yaml)；立项书升 v1.1
+- **新增**：[VOICE.md](VOICE.md)（语音三层设计）、[DATA-CONSTITUTION.md](DATA-CONSTITUTION.md)（数据宪法）、[COMPETITORS.md](COMPETITORS.md)（竞品跟踪，2026-10-21 首次扫描）、[taxonomy.yaml](../configs/taxonomy.yaml)；立项书升 v1.1
 
 ---
 
