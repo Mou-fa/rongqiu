@@ -24,11 +24,12 @@
 |---|---|---|
 | 1 | **本文（HANDOFF.md）** | 现状 + 纪律 + 陷阱 |
 | 2 | [REDLINES.md](REDLINES.md) | 五条不可逾越的红线。**违反即作废** |
-| 3 | [PROPOSAL.md](PROPOSAL.md) | 立项书：为什么做、架构、里程碑 |
-| 4 | [THEORY.md](THEORY.md) | 811、第一接触面、半知/未知的定义 |
-| 5 | [CAPABILITIES.md](CAPABILITIES.md) | 13 项能力的判据和边界 |
-| 6 | [FOUNDATIONS.md](FOUNDATIONS.md) | 理论出处（马尔可夫毯等） |
-| 7 | [VOICE.md](VOICE.md) | 语音三层与第三层设计（研究线，不阻塞主链路） |
+| 3 | [DATA-CONSTITUTION.md](DATA-CONSTITUTION.md) | 数据宪法：留形状不留内容；司法请求怎么答 |
+| 4 | [PROPOSAL.md](PROPOSAL.md) | 立项书：为什么做、架构、里程碑 |
+| 5 | [THEORY.md](THEORY.md) | 811、第一接触面、半知/未知的定义 |
+| 6 | [CAPABILITIES.md](CAPABILITIES.md) | 13 项能力的判据和边界 |
+| 7 | [FOUNDATIONS.md](FOUNDATIONS.md) | 理论出处（马尔可夫毯等） |
+| 8 | [VOICE.md](VOICE.md) | 语音三层与第三层设计（研究线，不阻塞主链路） |
 
 **时间紧就只读 1、2。**
 
@@ -239,7 +240,7 @@ python scripts/gh.py info     # 看 GitHub 仓库状态
 - **M1 第一版**：按原核挑面（`questions.select`）、未答面进半知、翻转阈值（`node.flip_distance`）
 - **开发期工具**：`mine_surfaces.py`（矿工）、`classify_corpus.py`、`draft_questions.py`、`import_questions.py`、`label_mk.py`
 - **修复**：搜索缓存 key 用 `hash()` 导致跨进程永不命中（改 sha1）
-- **新增**：[VOICE.md](VOICE.md)（语音三层设计）、[taxonomy.yaml](../configs/taxonomy.yaml)；立项书升 v1.1
+- **新增**：[VOICE.md](VOICE.md)（语音三层设计）、[DATA-CONSTITUTION.md](DATA-CONSTITUTION.md)（数据宪法）、[taxonomy.yaml](../configs/taxonomy.yaml)；立项书升 v1.1
 
 ---
 
