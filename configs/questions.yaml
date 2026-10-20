@@ -15,29 +15,484 @@
 #   polarity  这句答「是」对原核意味着什么：
 #               positive = 答是 → 倾向会（默认）
 #               negative = 答是 → 倾向不会
+#   mk        这句探测的是哪一类面（FOUNDATIONS §1 马尔可夫毯）：必填、单选
+#               cause = 直接因 / effect = 直接果 / common = 共同原因
+#   domains   面类别：展示用标签，**可多选**，取值见 configs/taxonomy.yaml
+#               不参与 811、不参与方向判定、不影响置信度
 #   why       为什么这句有效（留档，不展示给用户）
 #
 # 系统不会自己增删问题。这里有多少条，就问多少条；加一条，固定询问面就多一个。
 
+# ---
+# 2026-10-20：从 4064 条实测语料里批量起草、经使用者全部审定后导入（52 条）。
+# 每条带 mk（理论三类，单选）+ domains（16 类，可多选）。
+# note 是导入时的待核标记，不参与计算；复核后可删。
 questions:
-  - id: last_time
-    text: "你上一次遇到这种情况，最后怎么选的？"
-    when: always
-    polarity: positive
-    why: >
-      问行为不问动机，问过去不问现在。回答时用户是在陈述事实而不是解释自己，
-      没有防御。而过去的行为比当下的意愿更能预测下一次——这是关于「这个人」
-      最硬的一条数据。
+- id: last_time
+  text: 你上一次遇到这种情况，最后怎么选的？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 个人适配
+  why: '问行为不问动机，问过去不问现在。回答时用户是在陈述事实而不是解释自己， 没有防御。而过去的行为比当下的意愿更能预测下一次——这是关于「这个人」 最硬的一条数据。
 
-  - id: still_waiting
-    text: "这件事你已经反复想了一阵子，是吗？"
-    when: always
-    polarity: positive
-    why: >
-      人不会为不在乎的事反复纠结。只有重要的、想要的、怕失去的东西，
-      才值得在脑子里来回权衡。所以「反复想了一阵子」这个行为本身，
-      泄露的不是犹豫，是在乎——而在乎的方向，就是想去的方向。
+    '
+- id: still_waiting
+  text: 这件事你已经反复想了一阵子，是吗？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 心理感受
+  why: '人不会为不在乎的事反复纠结。只有重要的、想要的、怕失去的东西， 才值得在脑子里来回权衡。所以「反复想了一阵子」这个行为本身， 泄露的不是犹豫，是在乎——而在乎的方向，就是想去的方向。
 
-      第一版把极性定成了 negative（以为纠结等于卡住，卡住就不做），
-      这是从旁观者的逻辑推的，不是从人的心理推的。用户纠正：
-      潜意识里是想去的。所以答「是」→ 支持。
+    第一版把极性定成了 negative（以为纠结等于卡住，卡住就不做）， 这是从旁观者的逻辑推的，不是从人的心理推的。用户纠正： 潜意识里是想去的。所以答「是」→ 支持。
+
+    '
+- id: q01
+  text: 这笔钱你手头现在拿得出吗？
+  when: always
+  polarity: positive
+  mk: cause
+  domains:
+  - 个人适配
+  - 价值回报
+  - 条件门槛
+  - 经济负担
+  why: 直接看当前可动用资金是否够
+- id: q02
+  text: 你最近每月收入够覆盖日常开销吗？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 条件门槛
+  - 经济负担
+  - 风险不确定
+  why: 稳定收入状况决定承受力
+- id: q03
+  text: 你家里现在有固定房租收入吗？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 稳定保障
+  - 经济负担
+  why: 长期财务背景影响选择空间
+- id: q04
+  text: 你最近半年有没有为钱发过愁？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 经济负担
+  why: 近期财务紧张反映承受力
+  note: 导入时待核：审稿:问感受；极性不稳:发愁可能更谨慎或更急迫
+- id: q05
+  text: 这笔支出你之前已经付过定金吗？
+  when: always
+  polarity: positive
+  mk: cause
+  domains:
+  - 经济负担
+  - 风险不确定
+  why: 已投入的钱会牵住决定
+- id: q06
+  text: 你最近查过这项的后续花费吗？
+  when: always
+  polarity: negative
+  mk: effect
+  domains:
+  - 经济负担
+  why: 看过长期成本会更谨慎
+  note: 导入时待核：极性可能反了
+- id: q07
+  text: 你问过用过的人实际感受吗？
+  when: always
+  polarity: positive
+  mk: cause
+  domains:
+  - 信息真伪
+  why: 询问他人经验是核实信息真伪的常见方式
+- id: q08
+  text: 你比较过至少两家的价格吗？
+  when: always
+  polarity: positive
+  mk: cause
+  domains:
+  - 价值回报
+  - 信息真伪
+  why: 比价行为反映对市场行情真实性的核实
+- id: q09
+  text: 你查过合同里的免责条款吗？
+  when: always
+  polarity: positive
+  mk: cause
+  domains:
+  - 信息真伪
+  why: 审查条款是防范隐藏套路的关键动作
+- id: q10
+  text: 你向对方要过书面材料吗？
+  when: always
+  polarity: positive
+  mk: cause
+  domains:
+  - 信息真伪
+  why: 索要书面材料是核实信息真实性的具体行为
+- id: q11
+  text: 你身边有人经历过类似的事吗？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 价值回报
+  - 信息真伪
+  - 风险不确定
+  why: 身边案例影响对信息真实性的判断
+  note: 导入时待核：极性不稳:他人经历可正可负
+- id: q12
+  text: 你最近为这件事已经花过钱吗？
+  when: always
+  polarity: positive
+  mk: cause
+  domains:
+  - 价值回报
+  - 风险不确定
+  why: 已花钱说明已进入，倾向继续做
+- id: q13
+  text: 这件事你以前做过一次吗？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 风险不确定
+  why: 做过说明有经验，倾向再做
+- id: q14
+  text: 你手上有够用半年的存款吗？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 稳定保障
+  - 风险不确定
+  why: 有缓冲更敢承担损失
+- id: q15
+  text: 这件事你最近为此睡不好吗？
+  when: always
+  polarity: negative
+  mk: effect
+  domains:
+  - 心理感受
+  why: 睡不好反映决策焦虑，答是会降低行动可能
+  note: 导入时待核：审稿:问感受；极性不稳:睡不好可能更谨慎或更急迫
+- id: q16
+  text: 你最近为这事反复查资料超过一周了吗？
+  when: always
+  polarity: negative
+  mk: cause
+  domains:
+  - 心理感受
+  why: 反复查资料显示内耗，答是会拖延决定
+  note: 导入时待核：极性可能反了
+- id: q17
+  text: 你过去有过冲动决定后后悔的经历吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 心理感受
+  why: 有过后悔经历的人更可能犹豫
+- id: q18
+  text: 你身边有人最近因这事后悔过吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 心理感受
+  why: 看到他人后悔会降低行动意愿
+- id: q19
+  text: 你最近因为这事跟家人争吵过吗？
+  when: always
+  polarity: negative
+  mk: cause
+  domains:
+  - 心理感受
+  why: 家庭争吵增加心理压力，答是会犹豫
+- id: q20
+  text: 这件事需要你投入大量时间吗？
+  when: always
+  polarity: negative
+  mk: cause
+  domains:
+  - 时间成本
+  why: 直接探测决策所需的时间成本大小
+  note: 导入时待核：审稿:问未来需求
+- id: q21
+  text: 你最近的时间安排很紧吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 个人适配
+  - 时间成本
+  why: 反映长期时间资源是否充裕
+- id: q22
+  text: 这件事会占用你周末的休息时间吗？
+  when: always
+  polarity: negative
+  mk: effect
+  domains:
+  - 时间成本
+  why: 探测决策对个人休息时间的挤占
+  note: 导入时待核：审稿:问未来影响
+- id: q23
+  text: 你每天通勤要花很多时间吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 时间成本
+  why: 长期通勤时间影响可用时间
+- id: q24
+  text: 这件事需要你多次往返办理吗？
+  when: always
+  polarity: negative
+  mk: cause
+  domains:
+  - 时间成本
+  why: 多次往返增加时间精力消耗
+  note: 导入时待核：审稿:问未来需求
+- id: q25
+  text: 你过去为类似的事投入过大量时间吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 时间成本
+  why: 历史投入反映时间成本模式
+- id: q26
+  text: 你的学历达到对方要求了吗？
+  when: always
+  polarity: positive
+  mk: cause
+  domains:
+  - 条件门槛
+  why: 学历是招聘报考的硬条件
+- id: q27
+  text: 你的年龄还在允许范围内吗？
+  when: always
+  polarity: positive
+  mk: cause
+  domains:
+  - 条件门槛
+  why: 年龄是报考换岗的硬限制
+- id: q28
+  text: 你的身体指标符合这项要求吗？
+  when: always
+  polarity: positive
+  mk: cause
+  domains:
+  - 条件门槛
+  why: 身体指标是医疗类硬条件
+- id: q29
+  text: 你现在的征信记录是干净的吗？
+  when: always
+  polarity: positive
+  mk: cause
+  domains:
+  - 条件门槛
+  why: 征信决定能否获批贷款
+- id: q30
+  text: 你平时做重要决定，会先看自己条件够不够吗？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 个人适配
+  why: 探长期决策习惯是否先评估自身条件
+  note: 导入时待核：审稿:问习惯评价
+- id: q31
+  text: 你以前买过便宜一档的东西，后来后悔过吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 个人适配
+  why: 有过低配后悔经历会更看重适配
+- id: q32
+  text: 你平时做事，习惯把细节抠得很细吗？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 个人适配
+  why: 细节偏好影响对品质的要求
+  note: 导入时待核：审稿:问习惯评价；极性不稳:抠细节可促做或阻做
+- id: q33
+  text: 你最近一年因为身体原因去过医院吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 健康风险
+  why: 近期就医反映长期身体底子
+- id: q34
+  text: 你现在每天睡够七个小时吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 健康风险
+  why: 睡眠不足是长期身体背景
+  note: 导入时待核：极性可能反了
+- id: q35
+  text: 你手上有需要长期吃药的情况吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 健康风险
+  why: 长期用药说明身体有稳定负担
+- id: q36
+  text: 你家里有人得过遗传类的大病吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 健康风险
+  why: 家族病史是稳定的健康背景
+- id: q37
+  text: 你最近半年有过连续熬夜吗？
+  when: always
+  polarity: negative
+  mk: cause
+  domains:
+  - 健康风险
+  why: 近期熬夜是这次决定的具体身体约束
+- id: q38
+  text: 你最近三个月加过班吗？
+  when: always
+  polarity: negative
+  mk: cause
+  domains:
+  - 职业发展
+  why: 加班反映工作强度与时间约束
+- id: q39
+  text: 你目前有房贷月供要还吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 家庭责任
+  - 职业发展
+  why: 月供压力限制职业冒险
+- id: q40
+  text: 你近一年因工作身体出过问题吗？
+  when: always
+  polarity: negative
+  mk: effect
+  domains:
+  - 职业发展
+  why: 身体问题反映工作对健康的消耗
+- id: q41
+  text: 你所在行业近两年景气度下降了吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 稳定保障
+  - 职业发展
+  why: 行业趋势影响职业选择空间
+- id: q42
+  text: 你近一年花时间学习新技能了吗？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 职业发展
+  why: 学习行为反映技能积累习惯
+- id: q43
+  text: 你算过这笔投入多久能回本吗？
+  when: always
+  polarity: positive
+  mk: effect
+  domains:
+  - 价值回报
+  why: 回本时间越明确，越倾向做
+  note: 导入时待核：审稿:问计算评价
+- id: q44
+  text: 你目前有更急用钱的地方吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 价值回报
+  why: 其他开支挤占资源，降低投入意愿
+- id: q45
+  text: 你现在的收入来源只有一个吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 稳定保障
+  why: 单一收入抗风险弱，更看重稳定保障
+- id: q46
+  text: 你这份工作已经做了三年以上吗？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 稳定保障
+  why: 在职久的人更倾向守住现有保障
+- id: q47
+  text: 家里最近有大额支出需要你分担吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 家庭责任
+  why: 大额支出反映家庭财务责任轻重
+- id: q48
+  text: 你最近和伴侣聊过这个决定吗？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 关系维系
+  why: 问是否已与伴侣沟通，反映关系维系中的沟通习惯
+- id: q49
+  text: 这个决定会减少你和家人相处的时间吗？
+  when: always
+  polarity: negative
+  mk: effect
+  domains:
+  - 关系维系
+  why: 问是否减少家庭时间，直接探测对家庭关系的影响
+  note: 导入时待核：审稿:问未来影响
+- id: q50
+  text: 你最近和朋友聚会过吗？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 关系维系
+  why: 问近期社交活动，反映社交关系活跃度
+  note: 导入时待核：极性不稳:聚会与决定方向不定
+- id: q51
+  text: 这个决定需要你搬离现在的住处吗？
+  when: always
+  polarity: negative
+  mk: cause
+  domains:
+  - 关系维系
+  why: 问是否需搬家，直接关联关系地理距离变化
+  note: 导入时待核：审稿:问未来需求
+- id: q52
+  text: 你最近和伴侣有过争执吗？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 关系维系
+  why: 问近期争执，反映关系紧张程度

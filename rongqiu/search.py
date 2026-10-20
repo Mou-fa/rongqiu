@@ -17,6 +17,7 @@ Serper、Bing），但都不便宜、也可能随时改协议。绒球不该绑�
 
 from __future__ import annotations
 
+import hashlib
 import html as htmlmod
 import json
 import os
@@ -271,7 +272,11 @@ def search(query: str, cfg: SearchConfig | None = None,
     # 缓存 key 必须带 provider：换 provider 之后，旧缓存会被当成新结果返回。
     # 第一版没带，搜狗那批 0 结果被 tavily 的查询命中了，导致明明能拿到
     # 20 条却只返回 7 条。
-    cache_file = CACHE_DIR / f"{cfg.provider}_{abs(hash(query))}.json"
+    #
+    # 用 sha1 而不是内置 hash()：Python 的 str 哈希每个进程随机化，
+    # 用 hash() 做文件名意味着换个进程就永远命中不了缓存——搜一次算一次。
+    cache_file = CACHE_DIR / (
+        f"{cfg.provider}_{hashlib.sha1(query.encode('utf-8')).hexdigest()[:16]}.json")
     if use_cache and cache_file.exists():
         try:
             return [tuple(x) for x in json.loads(cache_file.read_text(encoding="utf-8"))]

@@ -106,6 +106,7 @@ async function ask() {
     STATE.engaged = false;   // 用户还没有任何输入，先不给倾向
     STATE.query = q;
     STATE.questions = d.questions || [];
+    STATE.probeCount = d.probe_count || (d.questions || []).length;
     STATE.quota = d.surface_quota || (d.questions || []).length;
     STATE.answers = [];
     // 新问题进来，明细默认收起
@@ -233,9 +234,10 @@ function renderQuestions() {
 
   // 只能二选一，不打字。
   // yes = 确定性第一接触面，no = 否定性第一接触面，方向由点击直接决定。
+  // 问句库是弹药库，不是每次全问。没有挑选结果时才退回整库显示。
   box.innerHTML =
-    '<div class="surfquota">固定询问面 ' + (STATE.quota || 0) +
-    ' 条 · 答一条就多一个面</div>' +
+    '<div class="surfquota">这次挑出 ' + (STATE.probeCount || (STATE.questions || []).length) +
+    ' 条（问句库共 ' + (STATE.quota || 0) + ' 条）· 答一条就多一个面</div>' +
     STATE.questions.map((q, i) =>
       '<div class="askcard" data-qid="' + esc(q.id) + '">' +
         '<div class="qtxt">' + esc(q.text) + '</div>' +
@@ -309,6 +311,11 @@ function renderStructure(j) {
     (j.dropped > 0
       ? '<div class="dropline">有 ' + j.dropped + ' 条场景判不出方向，未计入' +
         '（事实层只允许二元对立）</div>'
+      : '') +
+    // 翻转阈值：元信息，只陈述「还差几条事实」，不说该怎么做
+    (j.flip
+      ? '<div class="split-line">距离翻转还差 ' + j.flip.need + ' 条' +
+        (j.flip.direction === 'oppose' ? '反对' : '支持') + '事实</div>'
       : '') +
     (j.assumption ? '<div class="slots"><div class="slot"><b>半知</b>　' + esc(j.assumption) + '</div></div>' : '') +
     (j.unknown ? '<div class="slots"><div class="slot"><b>未知</b>　' + esc(j.unknown) + '</div></div>' : '');
@@ -495,6 +502,8 @@ async function judgeAgain() {
       question: STATE.query, binary: STATE.nucleus.binary,
       selected, stated,
       answers: STATE.answers || [],
+      // 把「这次实际问了哪些」带回服务端，才能算出「探到但没答」的面 → 半知
+      asked: (STATE.questions || []).map(q => q.id),
     });
     if (!d.ok) {
       // 不弹窗，也不清空已有结果——只在候选区下面给一句能照做的话。

@@ -51,3 +51,78 @@ def test_missing_file_falls_back(monkeypatch, tmp_path):
     got = questions.load()
     assert len(got) == 1
     assert got[0]["text"] == "你上一次遇到这种情况，最后怎么选的？"
+
+
+# --- 面类别标注（2026-10-20 起） -------------------------------------------
+# 15 类面类别、可多选。词表在 configs/taxonomy.yaml。
+
+
+def test_taxonomy_is_loaded():
+    """词表要能读出来；问句库的标注都以它为准。"""
+    names = questions.domain_names()
+    assert len(names) >= 10
+    # 16 类 v2：4109 条实测复检后加入「信息真伪」
+    assert "信息真伪" in names
+
+
+def test_every_question_is_annotated():
+    """M1 解锁条件之一：每个问句必须标注 mk + 至少一个 domain。"""
+    assert questions.issues() == []
+
+
+def test_domains_can_be_multi_select(monkeypatch, tmp_path):
+    bank = tmp_path / "q.yaml"
+    bank.write_text(
+        "questions:\n"
+        "  - id: multi\n"
+        "    text: 你手头紧不紧？\n"
+        "    mk: cause\n"
+        "    domains: [经济负担, 家庭责任]\n",
+        encoding="utf-8")
+    monkeypatch.setattr(questions, "QUESTIONS_PATH", bank)
+    got = questions.load()
+    assert got[0]["mk"] == "cause"
+    assert got[0]["domains"] == ["经济负担", "家庭责任"]
+
+
+def test_legacy_single_domain_string_is_wrapped(monkeypatch, tmp_path):
+    bank = tmp_path / "q.yaml"
+    bank.write_text(
+        "questions:\n"
+        "  - id: legacy\n"
+        "    text: 你上次去了吗？\n"
+        "    mk: common\n"
+        "    domain: 经济负担\n",
+        encoding="utf-8")
+    monkeypatch.setattr(questions, "QUESTIONS_PATH", bank)
+    assert questions.load()[0]["domains"] == ["经济负担"]
+
+
+def test_invalid_mk_is_dropped_and_flagged(monkeypatch, tmp_path):
+    bank = tmp_path / "q.yaml"
+    bank.write_text(
+        "questions:\n"
+        "  - id: bad\n"
+        "    text: 你是不是很累？\n"
+        "    mk: maybe\n"
+        "    domains: []\n",
+        encoding="utf-8")
+    monkeypatch.setattr(questions, "QUESTIONS_PATH", bank)
+    assert questions.load()[0]["mk"] == ""
+    problems = questions.issues()
+    assert any("mk" in p for p in problems)
+    assert any("domains" in p for p in problems)
+
+
+def test_unknown_domain_is_flagged(monkeypatch, tmp_path):
+    bank = tmp_path / "q.yaml"
+    bank.write_text(
+        "questions:\n"
+        "  - id: odd\n"
+        "    text: 你是不是很累？\n"
+        "    mk: common\n"
+        "    domains: [不存在的类]\n",
+        encoding="utf-8")
+    monkeypatch.setattr(questions, "QUESTIONS_PATH", bank)
+    assert any("未知 domain" in p for p in questions.issues())
+

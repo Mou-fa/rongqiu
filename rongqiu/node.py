@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 from .triples import Triple, SUPPORT, OPPOSE, DEPTH_DISCOUNT, MAX_DEPTH
@@ -58,9 +59,29 @@ class Judgment:
             "support_ratio": round(self.support_ratio, 4),
             "rule": self.rule, "max_depth": self.max_depth,
             "over_depth": self.max_depth > MAX_DEPTH,
+            "flip": self.flip_distance(),
             "assumption": self.assumption, "unknown": self.unknown,
             "facts": [f.as_dict() for f in self.facts],
         }
+
+    def flip_distance(self) -> dict:
+        """距离结论翻转还差几条同向事实。
+
+        元信息，不是建议：只陈述「再加几条事实，方向会变」。
+        权重按链长算，和 judge() 里用的 weights_of 一致。
+        """
+        w = lambda f: DEPTH_DISCOUNT ** (max(getattr(f, "depth", 1), 1) - 1)
+        s = sum(w(f) for f in self.facts if f.supports == SUPPORT)
+        o = sum(w(f) for f in self.facts if f.supports == OPPOSE)
+        if self.lean == "yes":
+            need = int(math.floor(s - o)) + 1
+            direction = "oppose"
+        else:
+            need = int(math.floor(o - s)) + 1
+            direction = "support"
+        return {"lean": self.lean, "direction": direction,
+                "need": max(1, need),
+                "support": round(s, 4), "oppose": round(o, 4)}
 
     @property
     def total_surfaces(self) -> int:

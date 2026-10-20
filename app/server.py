@@ -55,6 +55,7 @@ class JudgeBody(BaseModel):
     selected: list[SelectedItem] = []     # 用户认领的全网场景
     stated: list[SelectedItem] = []       # 用户自述（自动带入）
     answers: list[AnswerItem] = []        # 主动询问的 yes/no 回答
+    asked: list[str] = []                 # 这次实际被问到的问句 id（用于算未答面 → 半知）
     assumption: str = ""
     unknown: str = ""
 
@@ -112,6 +113,10 @@ def api_ask(body: AskBody):
             auto["id"] = entry["id"]
             related = common_root.related_to(entry["id"])
 
+    # 按原核挑面（M1 第三层的基础）：从问句库里挑这次最该问的 8–12 条。
+    # 挑不出来时 select() 会退回整库——不把问题藏起来，也不假装知道该问什么。
+    selected = questions.select(nu, has_history=bool(journal.load()), limit=10)
+
     return {
         "nucleus": nu.as_dict(),
         "query": query,
@@ -124,10 +129,11 @@ def api_ask(body: AskBody):
         # 跨决定共同根因：这个决定和别的决定共享的面（只陈述，不引导）
         "related": related if stated else [],
         # 主动询问：问句来自 configs/questions.yaml，由用户确定，系统不发明。
-        # 只问「发生过的、能被看见的」——不问为什么。
+        # 这里只返回「这次挑出来的」，不是整库。
         # 环境讯息：只给界面展示，不参与任何计数
         "env": env_text,
-        "questions": questions.for_nucleus(nu, has_history=bool(journal.load())),
+        "questions": [questions.render(q, nu) for q in selected],
+        "probe_count": len(selected),
         # 固定询问面总数：等于问题库的词条数。用户加词条它就变，代码不写死。
         "surface_quota": questions.surface_quota(),
     }
@@ -165,7 +171,17 @@ def api_judge(body: JudgeBody):
         mapping = origin.cluster(web)
         for i, f in enumerate(web):
             f.origin = mapping.get(i, -1)
-    if body.assumption:
+    # 这次挑出来、但用户还没答的面 → 半知槽的候选。
+    # 注意：这是「系统已找到、用户未确认」，不是系统替用户假设结论。
+    answered_ids = {a.id for a in body.answers}
+    missing = questions.unanswered(body.asked, answered_ids) if body.asked else []
+    missing_domains = sorted({d for q in missing for d in q.get("domains", [])})
+
+    if missing:
+        assumption = ("系统探到、你还没确认的面："
+                      + "、".join(missing_domains[:5])
+                      + f"（{len(missing)} 条未答）")
+    elif body.assumption:
         assumption = body.assumption
     elif body.selected:
         assumption = "我点选的这几条如实反映了我的情况"
@@ -192,7 +208,10 @@ def api_judge(body: JudgeBody):
     # 只说「你以前是什么样」，不说「你这次该怎样」。样本不足时返回 None。
     gap = calibration.gap_for(body.question, jd.get("confidence") or 0)
     return {"ok": True, "judgment": jd, "id": entry["id"],
-            "resolve_by": entry["resolve_by"], "related": related, "gap": gap}
+            "resolve_by": entry["resolve_by"], "related": related, "gap": gap,
+            # 半知缺口（元信息）：这次探到、但用户没答的面
+            "unanswered": [{"id": q["id"], "text": q["text"]} for q in missing],
+            "missing_domains": missing_domains}
 
 
 @app.get("/api/soundscape")
