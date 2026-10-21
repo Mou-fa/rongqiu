@@ -163,6 +163,12 @@ async function ask() {
 // 文案来自服务端固定内容，前端不做任何发挥。
 function showCrisis(d) {
   SOUND.stop();
+  const title = $("#crisis-title");
+  if (title && d.title) title.textContent = d.title;
+  const say = $("#crisis-say");
+  if (say) say.innerHTML = (d.support || []).map(esc).join("<br>");
+  const lead = $("#crisis-lead");
+  if (lead && d.lead) lead.textContent = d.lead;
   $("#crisis-lines").innerHTML = (d.hotlines || []).map(h =>
     '<li><span class="ci-name">' + esc(h.name) + '</span>' +
     '<a class="ci-num" href="tel:' + esc(h.number) + '">' + esc(h.number) + '</a></li>'

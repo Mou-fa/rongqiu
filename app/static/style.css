@@ -449,6 +449,7 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
   font-size: 19px; font-weight: 700; color: var(--ink); margin: 0 0 18px;
   letter-spacing: .3px;
 }
+.crisis-say { font-size: 13.5px; color: var(--ink-2); line-height: 1.8; margin: 0 0 18px; }
 .crisis-lead { font-size: 13.5px; color: var(--ink-2); margin: 0 0 12px; }
 .crisis-lines { list-style: none; margin: 0 0 20px; padding: 0; }
 .crisis-lines li {

@@ -98,3 +98,14 @@ def test_api_ask_short_circuits():
     assert "candidates" not in out
     assert "auto" not in out
     assert "structure" not in str(out)
+
+
+def test_response_support_lines():
+    r = crisis.response()
+    assert len(r["support"]) == 3
+    blob = "".join(r["support"])
+    assert "一个人扛" in blob
+    assert "先和下面的人说几句" in blob
+    assert "不想让你一个人待着" in blob
+    for forbidden in ["建议", "应该", "会好起来", "坚强", "结构", "置信", "放弃", "遗憾"]:
+        assert forbidden not in blob, f"支持文案里不该出现「{forbidden}」"
