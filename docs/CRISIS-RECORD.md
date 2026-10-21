@@ -48,11 +48,20 @@
 家属或警方在取得设备/合法授权后，可以主动导出：
 
     python scripts/export_crisis.py --list
-    python scripts/export_crisis.py --event <event_id> --out exports/case1
+    python scripts/export_crisis.py --event <event_id> --open
+
+不指定 --out 时，默认导出到：
+
+    C:\Users\<用户>\Documents\RongqiuCrisisExports\<event_id>\
+
+方便在文件管理器里直接找到；--out 可以指定别的位置；--open 导出后直接打开文件夹。
+
+如果系统权限拒绝写 Documents（例如 Windows 受控文件夹访问阻止了 Python），工具会自动退到仓库/当前目录下的 `exports/`；也可以用 --out 指到 U 盘或一个你有写权限的目录。
 
 导出目录包含：
 
 - 原始事件 JSON（问题 / 时间 / 地区）；
+- 摘要.txt（给家属/警方直接阅读的一页纸）；
 - SHA-256 清单；
 - README.txt（说明数据来源、时间、哈希校验方式）；
 - SHA256SUMS。

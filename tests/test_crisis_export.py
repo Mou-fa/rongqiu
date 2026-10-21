@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -39,11 +40,15 @@ def test_export_copies_verifiable_files(tmp_path, monkeypatch):
     assert (out / (eid + ".json")).exists()
     assert (out / (eid + ".manifest.json")).exists()
     assert (out / "README.txt").exists()
+    assert (out / "摘要.txt").exists()
     assert (out / "SHA256SUMS").exists()
     assert not (out / (eid + ".journal.jsonl")).exists()
     readme = (out / "README.txt").read_text(encoding="utf-8")
     assert "不会自动发送给任何人" in readme
     assert "不包含历史判断、回答或完整 journal" in readme
+    summary = (out / "摘要.txt").read_text(encoding="utf-8")
+    assert "湖北省恩施土家族苗族自治州" in summary
+    assert "测试问题" in summary
     sums = (out / "SHA256SUMS").read_text(encoding="utf-8").strip().splitlines()
     assert len(sums) >= 2
     with pytest.raises(ValueError):
@@ -84,3 +89,16 @@ def test_migrate_v2_removes_journal_and_strips_request(tmp_path, monkeypatch):
     assert rec["request"] == {"question": "旧问题", "region": ""}
     assert "journal_snapshot" not in rec
     assert crisis_store.verify_event(eid)["ok"] is True
+
+
+def test_export_defaults_to_documents_folder(tmp_path, monkeypatch):
+    res = _save(tmp_path, monkeypatch)
+    eid = res["event_id"]
+    monkeypatch.setattr(crisis_export, "DEFAULT_EXPORT_ROOT",
+                        tmp_path / "Documents" / "RongqiuCrisisExports")
+    result = crisis_export.export_event(eid)
+    out = Path(result["out"])
+    assert out.exists()
+    assert out.parent.name == "RongqiuCrisisExports"
+    assert (out / "摘要.txt").exists()
+    assert (out / "SHA256SUMS").exists()

@@ -28,7 +28,7 @@
   - SHA-256 清单；
   - **不保存回答、自述、历史判断或 journal 副本**；
   - 只写本机，不上传、不进入校准、不参与统计；`data/` 已被 git 忽略。
-  - `scripts/export_crisis.py` 可在本地导出可核验副本。
+  - `scripts/export_crisis.py` 可在本地导出可核验副本；默认导出到 `Documents\RongqiuCrisisExports\`（权限不允许时退到程序目录 `exports/`），只有设备持有者主动执行时才会复制。
   - **不会自动交给警方或家属**；第三方访问边界见 [CRISIS-RECORD.md](CRISIS-RECORD.md)。
   - 这是用户明确要求保留的内容型本地记录，也是当前唯一不遵守「只留形状」的本地数据；删除时直接删 `data/crisis/` 即可，加密要等 B1/B3 底座层。
 - **代码和文档有 git 远程**（github.com/Mou-fa/rongqiu），但 `data/`、`configs/llm.yaml`、`configs/search.yaml` 被 git 忽略，不会随代码推送。

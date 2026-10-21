@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -21,7 +22,8 @@ def main() -> int:
     p.add_argument("--list", action="store_true", help="列出本机危机记录")
     p.add_argument("--migrate", action="store_true", help="把旧快照收敛为只保留问题/时间/地区")
     p.add_argument("--event", help="事件 ID")
-    p.add_argument("--out", help="导出目录（必须为空或不存在）")
+    p.add_argument("--out", help="导出目录（默认：文档/RongqiuCrisisExports/<event_id>）")
+    p.add_argument("--open", action="store_true", help="导出后打开所在文件夹")
     args = p.parse_args()
 
     if args.migrate:
@@ -32,14 +34,19 @@ def main() -> int:
         events = crisis_export.list_events()
         print(json.dumps(events, ensure_ascii=False, indent=1))
         return 0
-    if not args.event or not args.out:
-        p.error("需要 --event 和 --out；或用 --list")
+    if not args.event:
+        p.error("需要 --event；或用 --list / --migrate")
     try:
         result = crisis_export.export_event(args.event, args.out)
     except ValueError as exc:
         print("导出失败：" + str(exc))
         return 1
     print(json.dumps(result, ensure_ascii=False, indent=1))
+    if args.open:
+        try:
+            os.startfile(result["out"])
+        except Exception:
+            pass
     return 0
 
 

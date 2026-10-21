@@ -12,12 +12,33 @@ from pathlib import Path
 
 from . import crisis_store
 
+# 默认导出到用户文档目录，方便家属/警方在文件管理器里直接找到。
+DEFAULT_EXPORT_ROOT = Path.home() / "Documents" / "RongqiuCrisisExports"
+FALLBACK_ROOTS = [
+    Path.home() / "RongqiuCrisisExports",
+    Path.home() / "Desktop" / "RongqiuCrisisExports",
+    Path.cwd() / "exports",
+]
+
+
+def _writable_root() -> Path:
+    for candidate in [Path(DEFAULT_EXPORT_ROOT)] + FALLBACK_ROOTS:
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            probe = candidate / ".write_test"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink()
+            return candidate
+        except Exception:
+            continue
+    raise ValueError("找不到可写的导出目录，请用 --out 指定一个位置")
+
 
 def _hash(path: Path) -> str:
     return crisis_store._sha256(path)
 
 
-def export_event(event_id: str, out_dir: str | Path) -> dict:
+def export_event(event_id: str, out_dir: str | Path | None = None) -> dict:
     src = crisis_store.event_json(event_id)
     if src is None:
         raise ValueError("找不到这个危机事件")
@@ -27,7 +48,13 @@ def export_event(event_id: str, out_dir: str | Path) -> dict:
 
     folder = src.parent
     manifest = folder / (event_id + ".manifest.json")
-    out = Path(out_dir)
+    if out_dir is None:
+        root = _writable_root()
+        out = root / event_id
+        if out.exists():
+            out = root / (event_id + "-" + datetime.now().strftime("%H%M%S"))
+    else:
+        out = Path(out_dir)
     if out.exists() and any(out.iterdir()):
         raise ValueError("导出目录不是空的，换一个目录，避免覆盖旧证据")
 
@@ -49,6 +76,7 @@ def export_event(event_id: str, out_dir: str | Path) -> dict:
         "文件：",
         f"- {event_id}.json：第一接触面（问题、时间、地区）",
         f"- {event_id}.manifest.json：SHA-256 清单",
+        "- 摘要.txt：给家属/警方直接阅读的单页摘要",
         "- SHA256SUMS：本目录副本的 SHA-256 汇总",
         "",
         "校验：",
@@ -63,6 +91,21 @@ def export_event(event_id: str, out_dir: str | Path) -> dict:
         "",
     ]
     (out / "README.txt").write_text("\n".join(readme), encoding="utf-8")
+
+    request = record.get("request") or {}
+    summary = [
+        "绒球危机记录摘要（第一接触面）",
+        "=" * 32,
+        f"事件 ID：{event_id}",
+        f"时间：{record.get('saved_at')}",
+        f"时区：{record.get('timezone')}（UTC 偏移 {record.get('utc_offset_seconds')} 秒）",
+        f"地区：{request.get('region') or '（未授权定位，未记录）'}",
+        f"问题：{request.get('question') or ''}",
+        "",
+        "说明：只包含问题、时间、地区；不包含回答、自述、历史判断或 journal。",
+        "来源：绒球本机自动保存，由设备持有者主动导出。",
+    ]
+    (out / "摘要.txt").write_text("\n".join(summary), encoding="utf-8")
 
     sums = []
     for p in sorted(out.iterdir()):
