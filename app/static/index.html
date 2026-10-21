@@ -23,6 +23,7 @@
         <button data-tab="ask" class="on">判断</button>
         <button data-tab="pending">回收<span id="due-badge" class="badge hidden"></span></button>
         <button data-tab="stats">校准</button>
+        <button data-tab="settings">设置</button>
         <button data-tab="soundscape">声景</button>
       </nav>
 
@@ -44,6 +45,7 @@
         </div>
         <button id="btn-ask" class="primary">开始判断</button>
         <p class="hint">你把自己的处境说得越清楚，系统的第一接触面就越多。</p>
+        <div id="setup-hint" class="hidden"></div>
       </section>
 
       <!-- 安全例外：危机输入。文案固定，不由模型生成。见 docs/REDLINES.md 第三部分 -->
@@ -109,6 +111,27 @@
         <div id="drift-body"><p class="hint">加载中…</p></div>
       </section>
 
+      <section id="step-settings" class="panel hidden tabpane">
+        <div class="label">设置</div>
+        <p class="hint">只保存在这台电脑；不上传、不写日志。留空的 API key 不会覆盖已经保存的 key。</p>
+
+        <div class="setblock">
+          <div class="label">模型（OpenAI 兼容接口）</div>
+          <label class="setrow"><span>接口地址</span><input id="set-base" placeholder="https://api.deepseek.com" autocomplete="off"></label>
+          <label class="setrow"><span>模型名</span><input id="set-model" placeholder="deepseek-chat" autocomplete="off"></label>
+          <label class="setrow"><span>API Key</span><input id="set-key" type="password" placeholder="sk-...（留空保持不变）" autocomplete="new-password"></label>
+        </div>
+
+        <div class="setblock">
+          <div class="label">搜索（可选）</div>
+          <label class="setrow"><span>服务商</span><input id="set-provider" placeholder="tavily" autocomplete="off"></label>
+          <label class="setrow"><span>API Key</span><input id="set-search-key" type="password" placeholder="留空保持不变" autocomplete="new-password"></label>
+        </div>
+
+        <button id="btn-save-settings" class="primary">保存</button>
+        <p id="settings-note" class="hint"></p>
+      </section>
+
       <section id="step-soundscape" class="panel hidden tabpane">
         <div class="label">声景</div>
         <p class="ss-intro">不是你该听什么，是此刻有什么。</p>
@@ -116,7 +139,7 @@
         <div id="soundscape-body"><p class="hint">加载中…</p></div>
       </section>
 
-      <footer>判断是趋近值，不是断言</footer>
+      <footer>判断是趋近值，不是断言 <button id="btn-quit" class="quit hidden">退出绒球</button></footer>
     </div>
 
     <aside class="aside">

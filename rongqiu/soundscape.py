@@ -24,8 +24,9 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
-CONFIG = ROOT / "configs" / "soundscape.yaml"
+from .paths import config_file
+
+CONFIG = config_file("soundscape.yaml")
 
 # 允许的时刻。只许客观维度，不许「按你的状态」。
 MOMENTS = ("dawn", "noon", "night", "rain", "commute", "alone")

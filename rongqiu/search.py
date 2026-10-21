@@ -29,9 +29,10 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-CONFIG_PATH = ROOT / "configs" / "search.yaml"
-CACHE_DIR = ROOT / "data" / "search_cache"
+from .paths import DATA, config_file
+
+CONFIG_PATH = config_file("search.yaml")
+CACHE_DIR = DATA / "search_cache"
 
 
 @dataclass
@@ -179,7 +180,7 @@ def _local(query: str, cfg: SearchConfig) -> list[tuple[str, str]]:
     真实搜索 API 的行为也是这样：搜索引擎按语义返回一批结果，
     由我们自己的匹配层来筛。
     """
-    path = ROOT / "data" / "local_corpus.json"
+    path = DATA / "local_corpus.json"
     if not path.exists():
         return []
     try:

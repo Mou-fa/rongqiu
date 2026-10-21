@@ -1090,3 +1090,85 @@ fetch("/api/pending").then(r => r.json()).then(d => {
   const badge = document.getElementById("due-badge");
   if (d.due > 0) { badge.textContent = d.due; badge.classList.remove("hidden"); }
 }).catch(() => {});
+
+// ---------- 设置 ----------
+async function loadSettings() {
+  const note = document.getElementById("settings-note");
+  try {
+    const r = await fetch("/api/settings");
+    const d = await r.json();
+    if (!d.ok) { if (note) note.textContent = d.message || "读取失败"; return; }
+    const base = document.getElementById("set-base");
+    const model = document.getElementById("set-model");
+    const provider = document.getElementById("set-provider");
+    if (base) base.value = d.llm.base_url || "";
+    if (model) model.value = d.llm.model || "";
+    if (provider) provider.value = d.search.provider || "";
+    if (note) {
+      note.textContent = "模型：" + (d.llm.api_key_set ? "已配置" : "未配置") +
+        " · 搜索：" + (d.search.api_key_set ? "已配置" : "未配置") +
+        "（key 不会显示明文）";
+    }
+  } catch (e) {
+    if (note) note.textContent = "读取失败：" + e.message;
+  }
+}
+
+async function saveSettings() {
+  const note = document.getElementById("settings-note");
+  const btn = document.getElementById("btn-save-settings");
+  if (btn) { btn.disabled = true; btn.textContent = "保存中…"; }
+  try {
+    const d = await post("/api/settings", {
+      base_url: (document.getElementById("set-base") || {}).value || "",
+      model: (document.getElementById("set-model") || {}).value || "",
+      api_key: (document.getElementById("set-key") || {}).value || "",
+      provider: (document.getElementById("set-provider") || {}).value || "",
+      search_api_key: (document.getElementById("set-search-key") || {}).value || "",
+    });
+    if (d.ok) {
+      if (note) note.textContent = d.configured ? "已保存。模型已配置。" : "已保存，但模型 key 仍是空的。";
+      const k = document.getElementById("set-key"); if (k) k.value = "";
+      const sk = document.getElementById("set-search-key"); if (sk) sk.value = "";
+      refreshSetupHint();
+    } else if (note) note.textContent = d.message || "保存失败";
+  } catch (e) {
+    if (note) note.textContent = "保存失败：" + e.message;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "保存"; }
+  }
+}
+
+async function refreshSetupHint() {
+  const box = document.getElementById("setup-hint");
+  if (!box) return;
+  try {
+    const r = await fetch("/api/settings");
+    const d = await r.json();
+    if (d.ok && !d.configured) {
+      box.className = "setup-banner";
+      box.innerHTML = "还没有配置模型。判断需要模型来读你的问题——去「设置」填一个 API Key 才能用。";
+    } else {
+      box.className = "hidden";
+      box.innerHTML = "";
+    }
+  } catch (e) { /* 忽略 */ }
+}
+
+const saveBtn = document.getElementById("btn-save-settings");
+if (saveBtn) saveBtn.onclick = saveSettings;
+refreshSetupHint();
+
+// ---------- 桌面版退出 ----------
+fetch("/api/app").then(function (r) { return r.json(); }).then(function (d) {
+  if (!d.desktop) return;
+  const b = document.getElementById("btn-quit");
+  if (!b) return;
+  b.classList.remove("hidden");
+  b.onclick = async function () {
+    b.disabled = true;
+    b.textContent = "正在退出…";
+    try { await fetch("/api/shutdown", { method: "POST" }); } catch (e) { /* 进程可能已退出 */ }
+    document.body.innerHTML = '<div style="padding:48px;font-family:system-ui;color:#5f5a52">绒球已退出，可以关闭窗口。</div>';
+  };
+}).catch(function () { /* 忽略 */ });

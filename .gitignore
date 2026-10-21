@@ -15,3 +15,11 @@ pytest-of-*/
 .pytest_cache/
 _*.txt
 _*.py
+# 构建产物与本地运行
+build/
+dist/
+*.spec
+RongqiuData/
+app.log
+.apptest*/
+.edgeprobe/

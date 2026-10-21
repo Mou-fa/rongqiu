@@ -18,8 +18,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / "data"
+from .paths import DATA
+
 JOURNAL = DATA / "journal.jsonl"
 DEFAULT_RESOLVE_DAYS = 3
 

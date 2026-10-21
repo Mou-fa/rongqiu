@@ -69,6 +69,29 @@ copy configs\search.example.yaml configs\search.yaml
 
 ---
 
+## 桌面版（Windows）
+
+不想碰命令行，可以打包成独立窗口程序：双击即用。
+
+```powershell
+# 需要先装打包工具
+pip install pyinstaller
+
+# 构建
+.\scripts\build_app.ps1
+
+# 产物
+dist\Rongqiu\Rongqiu.exe
+```
+
+- 数据默认在 `%APPDATA%\Rongqiu`；不可写时退回程序旁的 `RongqiuData\`；
+- 首次打开去「设置」页填模型 API Key（留空不覆盖已保存的值）；
+- 窗口用 Edge / Chrome 的 `--app` 模式（无地址栏）；没装浏览器时退回默认浏览器；
+- 当前是 API key 模式；本地模型（内容不出设备）放在 v0.4；
+- 未签名，Windows 可能弹 SmartScreen 提示，选「仍要运行」。
+
+---
+
 ## 目录结构
 
 ```
@@ -86,13 +109,15 @@ rongqiu/
   app/                  Web 应用
     server.py           FastAPI
     static/             前端
+  launcher.py           桌面版入口（启动服务 + 打开应用窗口）
+  scripts/build_app.ps1 打包脚本（PyInstaller）
   configs/
     questions.yaml      问句库（54 条）
     taxonomy.yaml       面类别词表（16 类，可多选）
     search.yaml         搜索配置（不入库）
   data/                 语料、索引、判断日志（不入库）
   scripts/              工具脚本
-  tests/                189 个测试
+  tests/                193 个测试
   docs/                 全部文档
 ```
 

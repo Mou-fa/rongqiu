@@ -27,8 +27,9 @@ from pathlib import Path
 
 from . import journal, nucleus
 
-ROOT = Path(__file__).resolve().parents[1]
-CACHE = ROOT / "data" / "nucleus_cache.json"
+from .paths import DATA
+
+CACHE = DATA / "nucleus_cache.json"
 
 MAX_QUESTIONS = 40      # 最多解析这么多个不同问题
 MIN_WORD = 2            # 少于两个字的词不当作依赖信号

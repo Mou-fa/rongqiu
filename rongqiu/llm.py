@@ -17,8 +17,10 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+from .paths import CONFIG, ROOT
+
 CONFIG_CANDIDATES = [
+    CONFIG / "llm.yaml",
     ROOT / "configs" / "llm.yaml",
     ROOT.parent / "quant-lab" / "configs" / "llm.yaml",
 ]

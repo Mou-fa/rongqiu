@@ -639,3 +639,14 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
 .baseitem .k { font-size:11px; color:#948b7e; }
 .baseitem .v { font-size:13px; color:#4f4a43; margin-top:2px; line-height:1.5; }
 .basecard .chart { margin-top:8px; }
+
+/* ---------- 设置 ---------- */
+.setblock { border:1px solid #e6dfd2; border-radius:14px; padding:12px 14px; background:rgba(255,255,255,.55); margin-top:14px; }
+.setrow { display:flex; align-items:center; gap:12px; margin-top:8px; font-size:13px; color:#5f5a52; }
+.setrow span { width:72px; flex:none; color:#8a8378; font-size:12px; }
+.setrow input { flex:1; min-width:0; padding:8px 10px; border:1px solid #ddd5c6; border-radius:8px; background:#fffdf8; font-size:13px; }
+.setup-banner { margin-top:14px; padding:10px 12px; border:1px solid #e0c9a8; border-radius:10px; background:#fbf3e2; color:#7a5a2b; font-size:13px; }
+
+/* ---------- 桌面版退出 ---------- */
+.quit { margin-left:12px; padding:3px 10px; font-size:12px; border:1px solid #ddd5c6; border-radius:99px; background:transparent; color:#8a8378; cursor:pointer; }
+.quit:hover { color:#7a4f2b; border-color:#c9a86a; }

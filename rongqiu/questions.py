@@ -49,9 +49,10 @@ def direction_of(polarity: str, answer: str) -> str:
         return SUPPORT if yes_means_support else OPPOSE
     return OPPOSE if yes_means_support else SUPPORT
 
-ROOT = Path(__file__).resolve().parents[1]
-QUESTIONS_PATH = ROOT / "configs" / "questions.yaml"
-TAXONOMY_PATH = ROOT / "configs" / "taxonomy.yaml"
+from .paths import DATA, config_file
+
+QUESTIONS_PATH = config_file("questions.yaml")
+TAXONOMY_PATH = config_file("taxonomy.yaml")
 
 # 理论分类（FOUNDATIONS §1 马尔可夫毯）：必填、单选。
 MK_VALUES = ("cause", "effect", "common")
@@ -189,7 +190,7 @@ def for_nucleus(nucleus, has_history: bool = False) -> list[dict]:
 # 只挑和这个决定直接相关的、覆盖不同面类别的，不要凑数。
 # 挑不出来时退回整库（不藏着问题，也不假装知道该问什么）。
 # ---------------------------------------------------------------------------
-SELECT_CACHE_PATH = ROOT / "data" / "question_select_cache.json"
+SELECT_CACHE_PATH = DATA / "question_select_cache.json"
 
 SELECT_SYSTEM = """你是「绒球」的探测规划器。用户正在犹豫一个问题，下面是从问句库里挑出的固定询问。
 请挑出这次最该问的 8–12 条：

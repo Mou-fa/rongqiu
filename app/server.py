@@ -10,18 +10,22 @@
 
 from __future__ import annotations
 
+import os
 import sys
+import threading
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+_REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPO))
 
-from fastapi import FastAPI  # noqa: E402
+from rongqiu.paths import ROOT  # noqa: E402
+
+from fastapi import FastAPI, Request  # noqa: E402
 from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from rongqiu import baselines, calibration, common_root, crisis, drift, environment, indexer, journal, node, nucleus, origin, questions, review, search, soundscape, topology  # noqa: E402
+from rongqiu import baselines, calibration, common_root, crisis, drift, environment, indexer, journal, llm, node, nucleus, origin, paths, questions, review, search, soundscape, topology  # noqa: E402
 
 app = FastAPI(title="绒球")
 STATIC = ROOT / "app" / "static"
@@ -299,6 +303,103 @@ def api_resolve(body: ResolveBody):
         return {"ok": False, "message": "找不到这条判断"}
     return {"ok": True, "entry": {"id": e["id"], "outcome": e["outcome"]},
             "stats": journal.stats()}
+
+
+class SettingsBody(BaseModel):
+    base_url: str = ""
+    model: str = ""
+    api_key: str = ""
+    provider: str = ""
+    search_api_key: str = ""
+
+
+def _read_flat(path) -> dict:
+    out = {}
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or ":" not in line:
+                continue
+            k, v = line.split(":", 1)
+            out[k.strip()] = v.strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return out
+
+
+def _write_flat(path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [f"{k}: {v}" if v else f"{k}:" for k, v in data.items()]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _is_local(request: Request) -> bool:
+    host = (request.client.host if request.client else "") or ""
+    return host in ("127.0.0.1", "::1", "localhost")
+
+
+@app.get("/api/settings")
+def api_settings_get(request: Request):
+    """读取设置。API key 只返回「是否已配置」，不返回明文。"""
+    if not _is_local(request):
+        return {"ok": False, "message": "设置只允许在本机访问"}
+    paths.ensure_home()
+    lp = paths.CONFIG / "llm.yaml"
+    sp = paths.CONFIG / "search.yaml"
+    llm_raw = _read_flat(lp) if lp.exists() else {}
+    search_raw = _read_flat(sp) if sp.exists() else {}
+    return {
+        "ok": True,
+        "llm": {
+            "base_url": llm_raw.get("base_url", "https://api.deepseek.com"),
+            "model": llm_raw.get("model", "deepseek-chat"),
+            "api_key_set": bool(llm_raw.get("api_key")),
+        },
+        "search": {
+            "provider": search_raw.get("provider", "tavily"),
+            "api_key_set": bool(search_raw.get("api_key")),
+        },
+        "configured": bool(llm_raw.get("api_key")) or llm.available(),
+    }
+
+
+@app.post("/api/settings")
+def api_settings_post(body: SettingsBody, request: Request):
+    """保存设置到用户目录。留空的 api_key 不覆盖已保存的值。"""
+    if not _is_local(request):
+        return {"ok": False, "message": "设置只允许在本机访问"}
+    paths.ensure_home()
+    lp = paths.CONFIG / "llm.yaml"
+    sp = paths.CONFIG / "search.yaml"
+    old_llm = _read_flat(lp) if lp.exists() else {}
+    old_search = _read_flat(sp) if sp.exists() else {}
+    llm_data = {
+        "base_url": body.base_url.strip() or old_llm.get("base_url", "https://api.deepseek.com"),
+        "model": body.model.strip() or old_llm.get("model", "deepseek-chat"),
+        "api_key": body.api_key.strip() or old_llm.get("api_key", ""),
+    }
+    _write_flat(lp, llm_data)
+    search_data = {
+        "provider": body.provider.strip() or old_search.get("provider", "tavily"),
+        "api_key": body.search_api_key.strip() or old_search.get("api_key", ""),
+    }
+    _write_flat(sp, search_data)
+    return {"ok": True, "configured": bool(llm_data["api_key"])}
+
+
+@app.get("/api/app")
+def api_app():
+    """前端据此判断是不是桌面版（决定要不要显示退出按钮）。"""
+    return {"desktop": paths.FROZEN}
+
+
+@app.post("/api/shutdown")
+def api_shutdown(request: Request):
+    """桌面版退出：本机请求才允许。"""
+    if not _is_local(request):
+        return {"ok": False, "message": "只允许本机退出"}
+    threading.Timer(0.4, os._exit, args=(0,)).start()
+    return {"ok": True}
 
 
 @app.get("/api/baselines")

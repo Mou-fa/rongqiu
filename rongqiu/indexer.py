@@ -25,8 +25,9 @@ from . import match
 from .llm import available, complete, load_config
 from .nucleus import Nucleus
 
-ROOT = Path(__file__).resolve().parents[1]
-INDEX_PATH = ROOT / "data" / "triple_index.json"
+from .paths import DATA
+
+INDEX_PATH = DATA / "triple_index.json"
 
 # 句末这几个标点表示「不是陈述句」
 _NON_DECL_END = "？！?!"
