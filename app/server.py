@@ -292,22 +292,28 @@ def api_pending():
     from datetime import datetime
     now = datetime.now().astimezone()
 
-    def days_left(e: dict) -> int:
+    def due_and_days(e: dict) -> tuple[bool, int]:
         try:
             rb = datetime.fromisoformat(e.get("resolve_by", ""))
-            return max(0, (rb - now).days)
         except ValueError:
-            return 0
+            return True, 0
+        delta = (rb - now).total_seconds()
+        if delta <= 0:
+            return True, 0
+        # 向上取整：还剩 23 小时也算「1 天后」，不能一创建就标成可回收。
+        return False, max(1, int((delta + 86399) // 86400))
 
     def brief(e: dict) -> dict:
+        due, days_left = due_and_days(e)
         return {"id": e["id"], "question": e["nucleus"], "ts": e["ts"],
                 "lean": e["lean"], "confidence": e["confidence"],
                 "p_yes": e.get("p_yes"), "n": e["n"],
                 "resolve_by": e.get("resolve_by"),
-                "days_left": days_left(e),
-                "due": days_left(e) == 0}
+                "days_left": days_left,
+                "due": due}
 
-    items = [brief(e) for e in journal.load() if e.get("outcome") is None]
+    # 只给最新 revision；否则同一个决策重判几次就出现几条待回收。
+    items = [brief(e) for e in journal.unresolved()]
     items.sort(key=lambda x: (not x["due"], x["days_left"]))
     return {"items": items[:60], "due": len([x for x in items if x["due"]]),
             "total": len(items)}
