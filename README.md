@@ -120,7 +120,7 @@ rongqiu/
     lexicon.jsonl       离线触发词表（实体 / 状态 / 正则）
   data/                 语料、索引、判断日志（不入库）
   scripts/              工具脚本
-  tests/                201 个测试
+  tests/                202 个测试
   docs/                 全部文档
 ```
 

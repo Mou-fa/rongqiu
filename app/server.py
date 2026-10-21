@@ -74,6 +74,7 @@ def api_ask(body: AskBody):
         return crisis.response()
 
     offline = False
+    compiled = input_layer.compile(body.question)
     try:
         nu = nucleus.parse(body.question)
         cfg = search.load_config()
@@ -96,6 +97,8 @@ def api_ask(body: AskBody):
         query = ""
         results = []
         cands = []
+    if not (nu.binary or "").strip():
+        nu.binary = compiled["binary"]
 
     # 系统先用 811 + REA 自己判一次，不要求用户做任何操作。
     # 「这些场景适用于我」本来就是假设槽该装的东西，系统可以自己承担这个假设。
@@ -132,11 +135,10 @@ def api_ask(body: AskBody):
 
     # 按原核挑面（M1 第三层的基础）：从问句库里挑这次最该问的 8–12 条。
     # 挑不出来时 select() 会退回整库——不把问题藏起来，也不假装知道该问什么。
-    if offline:
-        selected = input_layer.select_questions(body.question,
-                                                 has_history=bool(journal.load()),
-                                                 limit=10)
-    else:
+    selected = input_layer.select_questions(body.question,
+                                             has_history=bool(journal.load()),
+                                             limit=10)
+    if not selected:
         selected = questions.select(nu, has_history=bool(journal.load()), limit=10)
 
     provider = "local"
@@ -151,6 +153,9 @@ def api_ask(body: AskBody):
         "stated": [b.as_dict() for b in nu.background],
         "total_hits": len(results),
         "offline": offline,
+        "frame": compiled["frame"],
+        "surfaces": compiled["surfaces"],
+        "gaps": compiled["gaps"],
         "auto": auto,
         # 跨决定共同根因：这个决定和别的决定共享的面（只陈述，不引导）
         "related": related if stated else [],
