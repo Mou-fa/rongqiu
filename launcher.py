@@ -92,6 +92,21 @@ def _browser_has_profile(profile: str) -> bool:
     return False
 
 
+def _find_window_host():
+    """找内嵌窗口宿主（由 tools/RongqiuWindow.cs 编译而来）。"""
+    if getattr(sys, "frozen", False):
+        candidates = [Path(sys.executable).resolve().parent / "RongqiuWindow.exe"]
+    else:
+        candidates = [
+            Path(__file__).resolve().parent / "dist" / "Rongqiu" / "RongqiuWindow.exe",
+            Path(__file__).resolve().parent / "RongqiuWindow.exe",
+        ]
+    for path in candidates:
+        if path.exists():
+            return path
+    return None
+
+
 def _wait_http(url: str, timeout: float = 30.0) -> bool:
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -181,55 +196,33 @@ def main() -> int:
             pass
         return 0
 
-    browser = None
+    window = None
     try:
         if args.browser:
             webbrowser.open(url)
         else:
-            exe = _find_browser()
-            if not exe:
-                logging.warning("没有找到 Edge/Chrome，退回默认浏览器")
-                webbrowser.open(url)
-            else:
-                profile = paths.HOME / "browser-profile"
-                profile.mkdir(parents=True, exist_ok=True)
-                browser = subprocess.Popen([
-                    exe,
-                    "--app=" + url,
-                    "--window-size=1080,780",
-                    "--user-data-dir=" + str(profile),
-                    "--no-first-run",
-                    "--no-default-browser-check",
+            host = _find_window_host()
+            if host:
+                logging.info("启动内嵌窗口：%s", host)
+                window = subprocess.Popen([
+                    str(host), url, str(paths.HOME / "webview2"),
                 ])
-                logging.info("应用窗口已打开：%s", exe)
-                seen = False
-                deadline = time.time() + 60
-                while time.time() < deadline:
-                    if _browser_has_profile(str(profile)):
-                        seen = True
-                        break
-                    time.sleep(1)
-                if seen:
-                    while _browser_has_profile(str(profile)):
-                        time.sleep(2)
-                    logging.info("应用窗口已关闭")
-                else:
-                    logging.warning("没有检测到应用窗口进程，保持服务运行，等待退出")
-                    try:
-                        webbrowser.open(url)
-                    except Exception:
-                        pass
-                    browser = None
+                window.wait()
+                logging.info("窗口已关闭")
+            else:
+                logging.warning("没有找到 RongqiuWindow.exe，退回默认浏览器")
+                webbrowser.open(url)
     except Exception:
         logging.exception("窗口启动失败，退回默认浏览器")
         try:
-            webbrowser.open(url)
+            if window is None:
+                webbrowser.open(url)
         except Exception:
             pass
 
     try:
-        # 浏览器兜底：保持服务存活，直到用户点「退出绒球」
-        if browser is None:
+        # 没有原生窗口时保持服务存活，直到用户点「退出绒球」
+        if window is None:
             while thread.is_alive():
                 time.sleep(0.5)
     except KeyboardInterrupt:
