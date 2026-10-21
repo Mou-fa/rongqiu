@@ -62,7 +62,7 @@ def p_yes(entry: dict) -> float:
 
 
 def record(judgment, question: str, resolve_days: int | None = None,
-           extra: dict | None = None) -> dict:
+           extra: dict | None = None, user_lean: str | None = None) -> dict:
     if resolve_days is None:
         resolve_days = resolve_days_for(question)
     DATA.mkdir(parents=True, exist_ok=True)
@@ -87,6 +87,9 @@ def record(judgment, question: str, resolve_days: int | None = None,
         "outcome": None,
         "outcome_note": "",
         "resolved_at": None,
+        # 用户自己的直觉（会 / 不会）。只用于三方对照：
+        # 你的判断、系统的判断、实际结果，谁更准。
+        "user_lean": user_lean if user_lean in ("yes", "no") else None,
     }
     if extra:
         entry.update(extra)
@@ -176,6 +179,8 @@ def stats(entries: list[dict] | None = None, bins: int = 5) -> dict:
         "hit_rate": None, "mean_confidence": None,
         "calibration_gap": None,
         "reliability": [], "by_n": [], "by_rule": [],
+        "mean_p": None, "chance_brier": 0.25, "chance_skill": None,
+        "series": [], "three_way": None,
     }
     if not resolved:
         return out
@@ -198,6 +203,10 @@ def stats(entries: list[dict] | None = None, bins: int = 5) -> dict:
         "hit_rate": round(hit, 4),
         "base_rate": round(base_rate, 4),
         "mean_confidence": round(sum(e["confidence"] for e in resolved) / len(resolved), 4),
+        # 可靠性曲线的两条均线：预测均值（p_yes）与实际发生比例（base_rate）。
+        "mean_p": round(sum(p_yes(e) for e in resolved) / len(resolved), 4),
+        # 相对 50% 盲猜的技巧分；比 base-rate 基线直观，也不会在结果全同向时退化成 0。
+        "chance_skill": round(1 - b / 0.25, 4),
     })
 
     # 可靠性曲线：按 p_yes 分箱，比较预测均值与实际频率
@@ -226,6 +235,38 @@ def stats(entries: list[dict] | None = None, bins: int = 5) -> dict:
             "determinability": round(n / (n + 2), 4),
             "hit_rate": round(sum(1 for e in grp if e["lean"] == e["outcome"]) / len(grp), 4),
         })
+
+    # 逐条序列：时间曲线与三方对照都要用。只陈述，不评判。
+    ordered_by_time = sorted(resolved, key=lambda e: e.get("resolved_at") or e.get("ts") or "")
+    out["series"] = [{
+        "id": e.get("id"), "ts": e.get("ts"), "resolved_at": e.get("resolved_at"),
+        "p_yes": round(p_yes(e), 4), "confidence": e.get("confidence"),
+        "lean": e.get("lean"), "outcome": e.get("outcome"),
+        "hit": 1 if e["lean"] == e["outcome"] else 0,
+        "user_lean": e.get("user_lean"),
+        "user_hit": (None if e.get("user_lean") not in ("yes", "no")
+                     else (1 if e["user_lean"] == e["outcome"] else 0)),
+        "agree": (None if e.get("user_lean") not in ("yes", "no")
+                  else (1 if e["user_lean"] == e["lean"] else 0)),
+        "n": e.get("n"),
+    } for e in ordered_by_time]
+
+    # 三方对照：你的直觉 vs 系统判断 vs 实际结果。
+    with_user = [e for e in resolved if e.get("user_lean") in ("yes", "no")]
+    if with_user:
+        div = [e for e in with_user if e["user_lean"] != e["lean"]]
+        out["three_way"] = {
+            "samples": len(with_user),
+            "user_hit_rate": round(sum(1 for e in with_user
+                                       if e["user_lean"] == e["outcome"]) / len(with_user), 4),
+            "system_hit_rate": round(sum(1 for e in with_user
+                                         if e["lean"] == e["outcome"]) / len(with_user), 4),
+            "agree_rate": round(sum(1 for e in with_user
+                                    if e["user_lean"] == e["lean"]) / len(with_user), 4),
+            "diverge": len(div),
+            "system_right_when_diverge": sum(1 for e in div if e["lean"] == e["outcome"]),
+            "user_right_when_diverge": sum(1 for e in div if e["user_lean"] == e["outcome"]),
+        }
 
     for rule in sorted({e["rule"] for e in resolved}):
         grp = [e for e in resolved if e["rule"] == rule]

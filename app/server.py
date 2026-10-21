@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from rongqiu import calibration, common_root, crisis, drift, environment, indexer, journal, node, nucleus, origin, questions, review, search, soundscape, topology  # noqa: E402
+from rongqiu import baselines, calibration, common_root, crisis, drift, environment, indexer, journal, node, nucleus, origin, questions, review, search, soundscape, topology  # noqa: E402
 
 app = FastAPI(title="绒球")
 STATIC = ROOT / "app" / "static"
@@ -58,6 +58,8 @@ class JudgeBody(BaseModel):
     asked: list[str] = []                 # 这次实际被问到的问句 id（用于算未答面 → 半知）
     assumption: str = ""
     unknown: str = ""
+    user_lean: str | None = None          # 用户自己的直觉：yes / no；不选就是 None
+    user_lean: str | None = None   # 用户自己的直觉：yes / no；不选就是 None
 
 
 @app.post("/api/ask")
@@ -199,7 +201,7 @@ def api_judge(body: JudgeBody):
         return {"ok": False, "need": "surface",
                 "message": "还没有可判断的第一接触面。勾选一条场景，"
                            "或者把你的处境写进问题里（比如「今天身体不舒服，要不要去聚餐」）。"}
-    entry = journal.record(j, body.question)
+    entry = journal.record(j, body.question, user_lean=body.user_lean)
     # 跨决定共同根因：这个决定有没有和别的决定共享同一个面。
     # 只陈述结构，不给建议。
     related = common_root.related_to(entry["id"])
@@ -299,6 +301,15 @@ def api_resolve(body: ResolveBody):
             "stats": journal.stats()}
 
 
+@app.get("/api/baselines")
+def api_baselines():
+    """固定知识 / 常识基线：盲猜 50%、80% 封顶、艾宾浩斯遗忘曲线。
+
+    不是用户数据，不随用户变化；校准图用它当“世界本来是什么样”的参照。
+    """
+    return baselines.as_dict()
+
+
 @app.get("/api/stats")
 def api_stats():
     s = journal.stats()
@@ -310,6 +321,10 @@ def api_stats():
             "calibration_gap": s["calibration_gap"],
             "reliability": s["reliability"], "by_n": s["by_n"],
             "by_rule": s["by_rule"], "base_rate": s.get("base_rate"),
+            # 校准图要用的：预测/实际均线、逐条序列、三方对照、相对盲猜技巧分
+            "mean_p": s.get("mean_p"), "chance_brier": s.get("chance_brier", 0.25),
+            "chance_skill": s.get("chance_skill"),
+            "series": s.get("series", []), "three_way": s.get("three_way"),
             # 按决定类型的校准缺口（立项书 6.6）
             "by_category": calibration.by_category()}
 

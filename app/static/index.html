@@ -29,6 +29,13 @@
       <section id="step-ask" class="panel tabpane">
         <label class="label">你现在要决定什么？</label>
         <textarea id="question" rows="3" placeholder="把你的处境一起说出来，比如：今天身体不舒服，能不能去聚餐？"></textarea>
+        <div class="prior">
+          <span class="prior-label">你的直觉（可选）</span>
+          <button class="chip prior-btn" data-prior="yes">会</button>
+          <button class="chip prior-btn" data-prior="no">不会</button>
+          <button class="chip prior-btn" data-prior="">说不好</button>
+        </div>
+        <p class="hint">只用于校准对照：你猜的 / 系统判的 / 实际发生的，谁更准。</p>
         <div class="examples">
           <span>试试：</span>
           <button class="chip" data-q="今晚身体不舒服，绒球你觉得能不能去聚餐？">今晚身体不舒服，去不去聚餐</button>

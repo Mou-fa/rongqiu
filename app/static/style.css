@@ -591,3 +591,51 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
 }
 /* 输入变了但还没重算：结论变淡，提醒它是旧的 */
 .bar-verdict.stale { opacity: .38; }
+
+/* ---------- 校准：用户直觉 + 四格曲线 ---------- */
+.prior { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:12px 0 2px; }
+.prior-label { font-size:12px; color:#8a8378; }
+.prior-btn { font-size:13px; padding:5px 12px; }
+.prior-btn.on { border-color:#6d8a62; background:rgba(109,138,98,.12); color:#3f5b37; }
+
+.calgrid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px; }
+@media (max-width: 900px) { .calgrid { grid-template-columns:1fr; } }
+.calpanel { border:1px solid #e6dfd2; border-radius:14px; padding:12px 14px; background:rgba(255,255,255,.55); }
+.calhead { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:4px; }
+.calhead b { font-size:13px; }
+.calhint { font-size:11px; color:#948b7e; }
+.chart { width:100%; height:auto; display:block; }
+.cgrid { stroke:#ece5d8; stroke-width:1; }
+.cax { font-size:10px; fill:#9a9286; }
+.cdiag { stroke:#b9c7b0; stroke-width:1.4; stroke-dasharray:4 3; }
+.cchance { stroke:#d8c9a8; stroke-width:1.2; stroke-dasharray:2 3; }
+.ccap { stroke:#e0b7a0; stroke-width:1.2; stroke-dasharray:2 3; }
+.cmean { stroke:#c9a86a; stroke-width:1.2; stroke-dasharray:5 4; }
+.cgap { stroke:#c9a86a; stroke-width:2; stroke-opacity:.45; }
+.cdot { fill:#7f9b74; fill-opacity:.8; stroke:#4d6b48; stroke-width:1; }
+.cdotb { fill:#c9a86a; fill-opacity:.8; stroke:#8a6b32; stroke-width:1; }
+.cline1 { fill:none; stroke:#4d6b48; stroke-width:2; }
+.cline2 { fill:none; stroke:#b07a4a; stroke-width:2; stroke-dasharray:5 3; }
+.legend { font-size:11px; color:#948b7e; margin-top:6px; line-height:1.5; }
+.calwait { padding:8px 2px 4px; }
+.calbar { height:6px; background:#eee7da; border-radius:99px; overflow:hidden; margin:6px 0 4px; }
+.calbar i { display:block; height:100%; background:#9db08f; border-radius:99px; }
+
+.twsum { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:#5f5a52; }
+.twsum b { font-weight:600; }
+.tw { margin-top:8px; overflow-x:auto; }
+.tw-head, .tw-row { display:grid; grid-template-columns:34px repeat(12, minmax(24px, 1fr)); gap:4px; align-items:center; margin-top:4px; }
+.tw-head span { font-size:10px; color:#9a9286; text-align:center; }
+.twk { font-size:11px; color:#8a8378; }
+.twc { font-size:11px; text-align:center; padding:2px 0; border-radius:6px; }
+.twc.yes { background:rgba(109,138,98,.16); color:#3f5b37; }
+.twc.no { background:rgba(176,122,74,.14); color:#7a4f2b; }
+.twc.miss { opacity:.35; text-decoration:line-through; }
+
+/* ---------- 固定知识 / 常识基线 ---------- */
+.basecard { border:1px solid #e6dfd2; border-radius:14px; padding:12px 14px; background:rgba(255,255,255,.55); margin-top:8px; }
+.basegrid { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; }
+@media (max-width: 700px) { .basegrid { grid-template-columns:1fr; } }
+.baseitem .k { font-size:11px; color:#948b7e; }
+.baseitem .v { font-size:13px; color:#4f4a43; margin-top:2px; line-height:1.5; }
+.basecard .chart { margin-top:8px; }

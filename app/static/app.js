@@ -7,7 +7,7 @@ let STATE = { nucleus: null, candidates: [], picked: new Set(), auto: null,
               // 上一次计算时用的输入快照。用来判断「现在选的这些，算进去了没有」。
               // 没有它的时候，界面会显示「已选 2 条」但数字还是上一次的——
               // 文案在说谎，这和之前「还原判断」那个 bug 是同一类。
-              computedSig: null };
+              computedSig: null, userLean: null };
 
 // 上次授权过的坐标记在本地，不用每次都问
 try {
@@ -81,7 +81,23 @@ $("#question").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) ask();
 });
 document.querySelectorAll(".chip").forEach(b => {
+  if (b.classList.contains("prior-btn")) return;
   b.onclick = () => { $("#question").value = b.dataset.q; ask(); };
+});
+
+// 用户自己的直觉：会 / 不会 / 说不好。
+// 只存二元，不解释、不诱导；用于「你 / 系统 / 实际」三方对照。
+function paintPrior() {
+  document.querySelectorAll(".prior-btn").forEach(b => {
+    b.classList.toggle("on", (b.dataset.prior || null) === STATE.userLean);
+  });
+}
+document.querySelectorAll(".prior-btn").forEach(b => {
+  b.onclick = () => {
+    const v = b.dataset.prior || null;
+    STATE.userLean = (STATE.userLean === v) ? null : v;
+    paintPrior();
+  };
 });
 
 async function ask() {
@@ -504,6 +520,8 @@ async function judgeAgain() {
       answers: STATE.answers || [],
       // 把「这次实际问了哪些」带回服务端，才能算出「探到但没答」的面 → 半知
       asked: (STATE.questions || []).map(q => q.id),
+      // 用户自己的直觉（会 / 不会 / 不选）。只用于三方对照，不影响判断。
+      user_lean: STATE.userLean || null,
     });
     if (!d.ok) {
       // 不弹窗，也不清空已有结果——只在候选区下面给一句能照做的话。
@@ -549,6 +567,8 @@ $("#btn-crisis-back").onclick = () => {
 
 $("#btn-again").onclick = () => {
   $("#question").value = "";
+  STATE.userLean = null;
+  paintPrior();
   // 下次进来明细保持收起
   $("#detail-block").classList.add("hidden");
   $("#btn-detail").textContent = "▸ 查看明细";
@@ -808,83 +828,261 @@ async function loadDrift() {
   }
 }
 
+
+// ---------- 固定知识 / 常识基线 ----------
+// 这些不是从用户数据学出来的，是写死的参考。
+function svgForgetting(points) {
+  const arr = points || [];
+  if (!arr.length) return "";
+  const W = 380, H = 160, P = 28;
+  function X(i) { return P + (arr.length <= 1 ? 0.5 : i / (arr.length - 1)) * (W - P * 2); }
+  function Y(v) { return H - P - v / 100 * (H - P * 2); }
+  let g = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="chart" role="img">';
+  [0, 50, 100].forEach(function (v) {
+    g += '<line x1="' + X(0) + '" y1="' + Y(v) + '" x2="' + X(arr.length - 1) + '" y2="' + Y(v) + '" class="cgrid"/>';
+    g += '<text x="' + (P - 6) + '" y="' + (Y(v) + 4) + '" class="cax" text-anchor="end">' + v + '%</text>';
+  });
+  const pts = arr.map(function (p, i) { return X(i) + "," + Y(p.retention * 100); });
+  g += '<polyline points="' + pts.join(" ") + '" class="cline2"/>';
+  arr.forEach(function (p, i) {
+    g += '<circle cx="' + X(i) + '" cy="' + Y(p.retention * 100) + '" r="3.2" class="cdotb"/>';
+  });
+  const marks = [0, 3, 6];
+  marks.forEach(function (i) {
+    if (!arr[i]) return;
+    g += '<text x="' + X(i) + '" y="' + (H - 8) + '" class="cax" text-anchor="middle">' + arr[i].after + '</text>';
+  });
+  g += '</svg>';
+  return g;
+}
+
+function renderBaselines(b) {
+  let h = '<div class="label" style="margin-top:22px">常识基线</div>';
+  h += '<div class="basecard">';
+  h += '<div class="basegrid">';
+  h += '<div class="baseitem"><div class="k">盲猜</div><div class="v">50% · Brier 0.250</div></div>';
+  h += '<div class="baseitem"><div class="k">置信封顶</div><div class="v">80%（N=8 时 8/10）</div></div>';
+  h += '<div class="baseitem"><div class="k">遗忘曲线</div><div class="v">20 分钟 58% → 1 天 33% → 31 天 21%</div></div>';
+  h += '</div>';
+  h += svgForgetting(b.forgetting);
+  h += '<p class="hint">' + esc(b.forgetting_note) + '<br>来源：' + esc(b.source) + '</p>';
+  h += '</div>';
+  return h;
+}
+
 async function loadStats() {
   loadCommonRoots();
   loadTopology();
   loadDrift();
   const box = document.getElementById("stats-body");
   try {
-    const r = await fetch("/api/stats");
+    const rs = await Promise.all([fetch("/api/stats"), fetch("/api/baselines")]);
+    const r = rs[0], rb = rs[1];
     const s = await r.json();
+    const b = rb.ok ? await rb.json() : null;
     if (!s.resolved) {
-      box.innerHTML = '<p class="hint">还没有回收的结果。先去「回收」页回答几条——' +
-        '校准需要时间，这是正常的。</p>' +
-        '<div class="metrics">' +
-        metric("判断总数", s.total) + metric("待回收", s.pending) +
+      box.innerHTML = '<p class="hint">还没有回收的结果。先去「回收」页回答几条——校准需要时间，这是正常的。</p>' +
+        '<div class="metrics">' + metric("判断总数", s.total) + metric("待回收", s.pending) +
         metric("已回收", s.resolved) + '</div>';
       return;
     }
-    const gap = s.calibration_gap;
-    const gapTxt = gap > 0.05 ? "你比自己以为的<b>更准</b>"
-      : gap < -0.05 ? "你<b>过度自信</b>了" : "你的置信度校准得不错";
-    let h = '<div class="metrics">' +
-      metric("已回收", s.resolved) +
-      metric("命中率", Math.round(s.hit_rate * 100) + "%") +
-      metric("平均置信", Math.round(s.mean_confidence * 100) + "%") +
-      '</div>';
-    h += '<div class="gapbox">校准偏差 <b>' + (gap >= 0 ? "+" : "") +
-      Math.round(gap * 100) + '%</b>　' + gapTxt + '</div>';
-    h += '<div class="split-line">Brier ' + s.brier.toFixed(3) +
-      ' · 基准 ' + s.baseline_brier.toFixed(3) +
-      ' · 技巧分 ' + (s.skill === null ? "—" : s.skill.toFixed(3)) + '</div>';
-
-    if (s.reliability && s.reliability.length) {
-      h += '<div class="label" style="margin-top:20px">可靠性曲线</div>';
-      h += '<div class="rel">';
-      s.reliability.forEach(b => {
-        const pm = Math.round(b.p_mean * 100), ob = Math.round(b.obs * 100);
-        h += '<div class="relrow"><span class="relk">预测 ' + pm + '%</span>' +
-          '<span class="bars"><i style="width:' + pm + '%"></i>' +
-          '<em style="width:' + ob + '%"></em></span>' +
-          '<span class="relv">实际 ' + ob + '%</span></div>';
-      });
-      h += '</div><p class="hint">灰条比彩条低 = 过度自信；高 = 保守。</p>';
-    }
-
-    if (s.by_n && s.by_n.length) {
-      h += '<div class="label" style="margin-top:20px">按面数分组（811 检验）</div>';
-      h += '<div class="tbl"><div class="tr th"><span>面数</span>' +
-        '<span>样本</span><span>可确定</span><span>命中率</span><span>偏差</span></div>';
-      s.by_n.forEach(b => {
-        const d = b.hit_rate - b.determinability;
-        h += '<div class="tr"><span>' + (b.n + 2) + '</span><span>' + b.count +
-          '</span><span>' + Math.round(b.determinability * 100) + '%</span><span>' +
-          Math.round(b.hit_rate * 100) + '%</span><span class="' +
-          (d >= 0 ? "pos" : "neg") + '">' + (d >= 0 ? "+" : "") +
-          Math.round(d * 100) + '%</span></div>';
-      });
-      h += '</div><p class="hint">811 的检验：N=8 那行的命中率，应该接近 80%。</p>';
-    }
-    if (s.by_category && s.by_category.length) {
-      h += '<div class="label" style="margin-top:20px">按决定类型</div>';
-      h += '<div class="tbl"><div class="tr th"><span>类型</span>' +
-        '<span>样本</span><span>平均置信</span><span>命中率</span><span>缺口</span></div>';
-      s.by_category.forEach(c => {
-        const g = Math.round((c.gap || 0) * 100);
-        h += '<div class="tr"><span>' + esc(c.category) + '</span>' +
-          '<span>' + c.samples + '</span>' +
-          '<span>' + Math.round((c.mean_confidence || 0) * 100) + '%</span>' +
-          '<span>' + Math.round((c.hit_rate || 0) * 100) + '%</span>' +
-          '<span class="' + (g >= 0 ? "pos" : "neg") + '">' +
-          (g >= 0 ? "+" : "") + g + '%</span></div>';
-      });
-      h += '</div><p class="hint">缺口 = 命中率 − 平均置信。负数 = 高估自己。' +
-        ' 少于 5 条样本的类型不预警。</p>';
-    }
-    box.innerHTML = h;
+    box.innerHTML = renderCalibration(s, b);
   } catch (err) {
     box.innerHTML = '<p class="hint">加载失败：' + esc(err.message) + '</p>';
   }
+}
+
+function pct(v) { return v == null ? "—" : Math.round(v * 100) + "%"; }
+
+function calPanel(title, hint, body) {
+  return '<div class="calpanel"><div class="calhead"><b>' + title + '</b>' +
+    '<span class="calhint">' + hint + '</span></div>' + body + '</div>';
+}
+
+function calWait(have, need, label) {
+  const w = Math.max(0, Math.min(100, Math.round(have / need * 100)));
+  return '<div class="calwait"><div class="calbar"><i style="width:' + w + '%"></i></div>' +
+    '<p class="hint">' + label + '：已有 ' + have + ' / ' + need + '，还差 ' +
+    Math.max(0, need - have) + ' 条。样本不够时不下结论。</p></div>';
+}
+
+function svgReliability(s) {
+  const W = 340, H = 240, P = 34;
+  function X(v) { return P + v / 100 * (W - P * 2); }
+  function Y(v) { return H - P - v / 100 * (H - P * 2); }
+  let g = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="chart" role="img">';
+  [0, 50, 100].forEach(function (v) {
+    g += '<line x1="' + X(0) + '" y1="' + Y(v) + '" x2="' + X(100) + '" y2="' + Y(v) + '" class="cgrid"/>';
+    g += '<text x="' + (X(0) - 6) + '" y="' + (Y(v) + 4) + '" class="cax" text-anchor="end">' + v + '%</text>';
+    g += '<text x="' + X(v) + '" y="' + (Y(0) + 16) + '" class="cax" text-anchor="middle">' + v + '%</text>';
+  });
+  g += '<line x1="' + X(0) + '" y1="' + Y(0) + '" x2="' + X(100) + '" y2="' + Y(100) + '" class="cdiag"/>';
+  g += '<line x1="' + X(0) + '" y1="' + Y(50) + '" x2="' + X(100) + '" y2="' + Y(50) + '" class="cchance"/>';
+  const mp = s.mean_p == null ? null : s.mean_p * 100;
+  const mo = s.base_rate == null ? null : s.base_rate * 100;
+  if (mp != null) {
+    g += '<line x1="' + X(mp) + '" y1="' + Y(0) + '" x2="' + X(mp) + '" y2="' + Y(100) + '" class="cmean"/>';
+  }
+  if (mo != null) {
+    g += '<line x1="' + X(0) + '" y1="' + Y(mo) + '" x2="' + X(100) + '" y2="' + Y(mo) + '" class="cmean"/>';
+    if (mp != null) {
+      g += '<line x1="' + X(mp) + '" y1="' + Y(mp) + '" x2="' + X(mp) + '" y2="' + Y(mo) + '" class="cgap"/>';
+    }
+  }
+  (s.reliability || []).forEach(function (b) {
+    const px = X(b.p_mean * 100), py = Y(b.obs * 100);
+    const rr = 4 + Math.min(9, Math.sqrt(b.n) * 2.2);
+    g += '<circle cx="' + px + '" cy="' + py + '" r="' + rr.toFixed(1) + '" class="cdot"/>';
+    g += '<text x="' + px + '" y="' + (py - rr - 4) + '" class="cax" text-anchor="middle">n=' + b.n + '</text>';
+  });
+  g += '<text x="' + (W / 2) + '" y="' + (H - 4) + '" class="cax" text-anchor="middle">预测概率</text>';
+  g += '</svg>';
+  return g;
+}
+
+function relLegend() {
+  return '<div class="legend">对角线 = 完美校准 · 横虚线 = 盲猜 50% · ' +
+    '细虚线 = 预测均值（竖）/ 实际均值（横）</div>';
+}
+
+function svgTime(s) {
+  const arr = s.series || [];
+  const W = 340, H = 240, P = 34;
+  function X(i) { return P + (arr.length <= 1 ? 0.5 : i / (arr.length - 1)) * (W - P * 2); }
+  function Y(v) { return H - P - v / 100 * (H - P * 2); }
+  let g = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="chart" role="img">';
+  [0, 50, 80, 100].forEach(function (v) {
+    g += '<line x1="' + X(0) + '" y1="' + Y(v) + '" x2="' + X(arr.length - 1) + '" y2="' + Y(v) + '" class="cgrid"/>';
+    g += '<text x="' + (P - 6) + '" y="' + (Y(v) + 4) + '" class="cax" text-anchor="end">' + v + '%</text>';
+  });
+  g += '<line x1="' + X(0) + '" y1="' + Y(50) + '" x2="' + X(arr.length - 1) + '" y2="' + Y(50) + '" class="cchance"/>';
+  g += '<line x1="' + X(0) + '" y1="' + Y(80) + '" x2="' + X(arr.length - 1) + '" y2="' + Y(80) + '" class="ccap"/>';
+  let cp = 0, co = 0, a = [], b = [];
+  arr.forEach(function (e, i) {
+    cp += e.p_yes;
+    co += (e.outcome === "yes" ? 1 : 0);
+    a.push(X(i) + "," + Y(cp / (i + 1) * 100));
+    b.push(X(i) + "," + Y(co / (i + 1) * 100));
+  });
+  g += '<polyline points="' + a.join(" ") + '" class="cline1"/>';
+  g += '<polyline points="' + b.join(" ") + '" class="cline2"/>';
+  g += '<text x="' + (W / 2) + '" y="' + (H - 4) + '" class="cax" text-anchor="middle">回收顺序（越右越新）</text>';
+  g += '</svg>';
+  return g;
+}
+
+function timeLegend() {
+  return '<div class="legend">实线 = 预测均值（累计）· 虚线 = 实际发生比例（累计）· ' +
+    '浅虚线 = 盲猜 50% / 80% 封顶</div>';
+}
+
+function svgByN(s) {
+  const bins = s.by_n || [];
+  const W = 340, H = 240, P = 34;
+  function X(v) { return P + v * (W - P * 2); }
+  function Y(v) { return H - P - v * (H - P * 2); }
+  let g = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="chart" role="img">';
+  [0, 0.5, 0.8, 1].forEach(function (v) {
+    g += '<line x1="' + X(0) + '" y1="' + Y(v) + '" x2="' + X(1) + '" y2="' + Y(v) + '" class="cgrid"/>';
+    g += '<text x="' + (P - 6) + '" y="' + (Y(v) + 4) + '" class="cax" text-anchor="end">' + Math.round(v * 100) + '%</text>';
+    g += '<text x="' + X(v) + '" y="' + (Y(0) + 16) + '" class="cax" text-anchor="middle">' + Math.round(v * 100) + '%</text>';
+  });
+  g += '<line x1="' + X(0) + '" y1="' + Y(0) + '" x2="' + X(1) + '" y2="' + Y(1) + '" class="cdiag"/>';
+  g += '<line x1="' + X(0) + '" y1="' + Y(0.8) + '" x2="' + X(1) + '" y2="' + Y(0.8) + '" class="ccap"/>';
+  bins.forEach(function (b) {
+    const rr = 4 + Math.min(9, Math.sqrt(b.count) * 2.2);
+    g += '<circle cx="' + X(b.determinability) + '" cy="' + Y(b.hit_rate) + '" r="' + rr.toFixed(1) + '" class="cdotb"/>';
+    g += '<text x="' + X(b.determinability) + '" y="' + (Y(b.hit_rate) - rr - 4) + '" class="cax" text-anchor="middle">N=' + (b.n + 2) + ' · ' + b.count + '条</text>';
+  });
+  g += '<text x="' + (W / 2) + '" y="' + (H - 4) + '" class="cax" text-anchor="middle">可确定度 N/(N+2)</text>';
+  g += '</svg>';
+  return g;
+}
+
+function bynLegend() {
+  return '<div class="legend">对角线 = 结构成立（命中率 = 可确定度）· 浅虚线 = 80% 封顶</div>';
+}
+
+function renderThreeWay(s) {
+  const tw = s.three_way;
+  const items = (s.series || []).filter(function (e) {
+    return e.user_lean === "yes" || e.user_lean === "no";
+  }).slice(-12);
+  let h = '<div class="twsum">' +
+    '<span>样本 <b>' + tw.samples + '</b></span>' +
+    '<span>你命中 <b>' + pct(tw.user_hit_rate) + '</b></span>' +
+    '<span>绒球命中 <b>' + pct(tw.system_hit_rate) + '</b></span>' +
+    '<span>一致 <b>' + pct(tw.agree_rate) + '</b></span></div>';
+  h += '<p class="hint">分歧 ' + tw.diverge + ' 次：你对 ' + tw.user_right_when_diverge +
+    ' 次，绒球对 ' + tw.system_right_when_diverge + ' 次。</p>';
+  h += '<div class="tw"><div class="tw-head"><span></span>' +
+    items.map(function (e, i) { return '<span>' + (i + 1) + '</span>'; }).join("") + '</div>';
+  const rows = [
+    ["你", function (e) { return e.user_lean; }, function (e) { return e.user_hit; }],
+    ["绒球", function (e) { return e.lean; }, function (e) { return e.hit; }],
+    ["实际", function (e) { return e.outcome; }, function (e) { return 1; }]
+  ];
+  rows.forEach(function (row) {
+    h += '<div class="tw-row"><span class="twk">' + row[0] + '</span>';
+    items.forEach(function (e) {
+      const v = row[1](e);
+      const ok = row[2](e);
+      h += '<span class="twc ' + (v === "yes" ? "yes" : "no") + (ok ? "" : " miss") + '">' +
+        (v === "yes" ? "会" : "不会") + '</span>';
+    });
+    h += '</div>';
+  });
+  h += '</div><div class="legend">灰掉 = 与「实际」不一致。左到右为由旧到新。</div>';
+  return h;
+}
+
+function renderCalibration(s, b) {
+  const res = s.resolved;
+  const sk = s.chance_skill == null ? "—" : s.chance_skill.toFixed(3);
+  let h = '<div class="metrics">' +
+    metric("已回收", res) + metric("Brier", s.brier.toFixed(3)) +
+    metric("相对盲猜", sk) + metric("预测均值", pct(s.mean_p)) +
+    metric("实际命中", pct(s.base_rate)) + '</div>';
+  h += '<p class="hint" style="margin-top:10px">盲猜 Brier = 0.250；相对盲猜 > 0 才是比瞎猜准。样本不足时，格子保持沉默。</p>';
+  h += '<div class="calgrid">';
+  if (res >= 10 && (s.reliability || []).length >= 2) {
+    h += calPanel("可靠性曲线", "预测概率 vs 实际发生比例", svgReliability(s) + relLegend());
+  } else {
+    h += calPanel("可靠性曲线", "预测概率 vs 实际发生比例", calWait(res, 10, "可靠性曲线"));
+  }
+  if (res >= 5 && (s.series || []).length >= 3) {
+    h += calPanel("时间曲线", "预测均值 vs 实际发生（累计）", svgTime(s) + timeLegend());
+  } else {
+    h += calPanel("时间曲线", "预测均值 vs 实际发生（累计）", calWait(res, 5, "时间曲线"));
+  }
+  const groups = (s.by_n || []).filter(function (b) { return b.count >= 3; });
+  if (res >= 10 && groups.length >= 2) {
+    h += calPanel("811 结构曲线", "可确定度 vs 实际命中率", svgByN(s) + bynLegend());
+  } else {
+    h += calPanel("811 结构曲线", "可确定度 vs 实际命中率", calWait(res, 10, "811 曲线"));
+  }
+  if (s.three_way && s.three_way.samples >= 3) {
+    h += calPanel("三方对照", "你的直觉 / 系统判断 / 实际结果", renderThreeWay(s));
+  } else {
+    h += calPanel("三方对照", "你的直觉 / 系统判断 / 实际结果",
+      calWait(s.three_way ? s.three_way.samples : 0, 3, "三方对照（提问时选『你的直觉』）"));
+  }
+  h += '</div>';
+  if (b) h += renderBaselines(b);
+  if (s.by_category && s.by_category.length) {
+    h += '<div class="label" style="margin-top:20px">按决定类型</div>';
+    h += '<div class="tbl"><div class="tr th"><span>类型</span><span>样本</span>' +
+      '<span>平均置信</span><span>命中率</span><span>缺口</span></div>';
+    s.by_category.forEach(function (c) {
+      const g = Math.round((c.gap || 0) * 100);
+      h += '<div class="tr"><span>' + esc(c.category) + '</span><span>' + c.samples +
+        '</span><span>' + Math.round((c.mean_confidence || 0) * 100) + '%</span><span>' +
+        Math.round((c.hit_rate || 0) * 100) + '%</span><span class="' + (g >= 0 ? "pos" : "neg") +
+        '">' + (g >= 0 ? "+" : "") + g + '%</span></div>';
+    });
+    h += '</div><p class="hint">缺口 = 命中率 − 平均置信。少于 5 条样本的类型不预警。</p>';
+  }
+  return h;
 }
 
 // 启动时看一下有没有到期的
