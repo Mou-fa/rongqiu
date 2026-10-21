@@ -68,6 +68,13 @@ LLM 只负责原核解析与搜索，不负责挑面。
 
 ---
 
+## 覆盖审计工具
+
+    python scripts/audit_input_layer.py
+
+只读 `data/journal.jsonl`，统计：框架分布、面命中率、没命中面的样本、各面出现次数，
+输出 `data/input_layer_audit.json`。用它决定下一步补哪个面，而不是凭感觉加词。
+
 ## 当前边界
 
 - lexicon / surface / probe 覆盖仍偏「钱、职业、关系、健康」；户外安全刚补了 5 条；

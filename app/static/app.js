@@ -100,6 +100,22 @@ document.querySelectorAll(".prior-btn").forEach(b => {
   };
 });
 
+const SURFACE_NAMES = {
+  "decision.economic": "经济",
+  "decision.information": "信息",
+  "decision.risk": "风险",
+  "decision.health": "健康",
+  "decision.time": "时间",
+  "decision.eligibility": "条件",
+  "decision.self_fit": "个人适配",
+  "decision.relationship": "关系",
+  "decision.career": "职业",
+  "decision.emotion": "情绪",
+  "decision.alternatives": "替代方案",
+  "decision.convenience": "便利",
+  "decision.safety": "安全"
+};
+
 async function ask() {
   const q = $("#question").value.trim();
   if (!q) return;
@@ -122,6 +138,8 @@ async function ask() {
     STATE.engaged = false;   // 用户还没有任何输入，先不给倾向
     STATE.query = q;
     STATE.questions = d.questions || [];
+    STATE.surfaces = d.surfaces || [];
+    STATE.gaps = d.gaps || [];
     STATE.probeCount = d.probe_count || (d.questions || []).length;
     STATE.quota = d.surface_quota || (d.questions || []).length;
     STATE.answers = [];
@@ -251,7 +269,13 @@ function renderQuestions() {
   // 只能二选一，不打字。
   // yes = 确定性第一接触面，no = 否定性第一接触面，方向由点击直接决定。
   // 问句库是弹药库，不是每次全问。没有挑选结果时才退回整库显示。
-  box.innerHTML =
+  const surfaceNames = (STATE.surfaces || [])
+    .map(s => SURFACE_NAMES[s.surface_id] || s.surface_id)
+    .filter(Boolean);
+  const surfaceLine = surfaceNames.length
+    ? '<div class="surfaceline">识别到：' + esc(surfaceNames.join("、")) + '</div>'
+    : '';
+  box.innerHTML = surfaceLine +
     '<div class="surfquota">这次挑出 ' + (STATE.probeCount || (STATE.questions || []).length) +
     ' 条（问句库共 ' + (STATE.quota || 0) + ' 条）· 答一条就多一个面</div>' +
     STATE.questions.map((q, i) =>

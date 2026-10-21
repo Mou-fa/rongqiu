@@ -39,3 +39,15 @@ def test_water_safety_does_not_ask_money():
     assert "swim_water_info" in ids
     assert "q01" not in ids      # 户外水域不是财务缺口
     assert "q02" not in ids
+
+
+def test_body_states_are_health():
+    for text in ("口渴要不要喝可乐", "脚冷要不要穿袜子？"):
+        c = input_layer.compile(text)
+        assert "decision.health" in [s["surface_id"] for s in c["surfaces"]], text
+
+
+def test_weather_alone_is_not_a_surface():
+    c = input_layer.compile("天有点冷，要不要烤火？")
+    assert c["frame"] == "decision"
+    assert "decision.health" not in [s["surface_id"] for s in c["surfaces"]]
