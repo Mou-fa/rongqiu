@@ -80,10 +80,22 @@ LLM 只负责原核解析与搜索，不负责挑面。
 - lexicon / surface / probe 覆盖仍偏「钱、职业、关系、健康」；户外安全刚补了 5 条；
 - 离线 binary 是规则抽取，复杂句会退化；
 - 还没有语音输入；
-- 按面校准统计还没接进 `journal.stats`；
 - 问句库是护城河：新增 probe 必须人工审，不自动生成。
 
 ---
+
+## 按面校准
+
+用户每回答一条 probe，服务端会把它归到所属面，写入 journal 的 `surface_answers`。
+回收后 `journal.stats()` 输出每个面的：
+
+- `facts`：这个面被回答过多少条事实；
+- `decisions`：涉及多少个决策；
+- `hits` / `hit_rate`：方向与最终结果同向的比例；
+- `brier`：按「support=会发生 / oppose=不会发生」算的 Brier。
+
+旧记录没有 `surface_answers` 的，从「主动询问」事实的 scene 反推面。
+少于 5 条事实的面在校准页只显示样本，不显示命中率。
 
 ## 与 811 / journal 的关系
 

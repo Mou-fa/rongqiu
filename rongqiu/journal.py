@@ -94,7 +94,8 @@ def p_yes(entry: dict) -> float:
 
 def record(judgment, question: str, resolve_days: int | None = None,
            extra: dict | None = None, user_lean: str | None = None,
-           decision_id: str | None = None) -> dict:
+           decision_id: str | None = None,
+           surface_answers: list[dict] | None = None) -> dict:
     if resolve_days is None:
         resolve_days = resolve_days_for(question)
     DATA.mkdir(parents=True, exist_ok=True)
@@ -135,6 +136,8 @@ def record(judgment, question: str, resolve_days: int | None = None,
         # 用户自己的直觉（会 / 不会）。只用于三方对照：
         # 你的判断、系统的判断、实际结果，谁更准。
         "user_lean": user_lean if user_lean in ("yes", "no") else None,
+        # 这次回答归属于哪些面 + 回答方向。用于按面校准；旧记录可能为空。
+        "surface_answers": surface_answers or [],
     }
     if extra:
         entry.update(extra)
@@ -236,6 +239,7 @@ def stats(entries: list[dict] | None = None, bins: int = 5) -> dict:
         "reliability": [], "by_n": [], "by_rule": [],
         "mean_p": None, "chance_brier": 0.25, "chance_skill": None,
         "series": [], "three_way": None,
+        "surfaces": [],
     }
     if not resolved:
         return out
@@ -330,7 +334,75 @@ def stats(entries: list[dict] | None = None, bins: int = 5) -> dict:
             "hit_rate": round(sum(1 for e in grp if e["lean"] == e["outcome"]) / len(grp), 4),
             "mean_confidence": round(sum(e["confidence"] for e in grp) / len(grp), 4),
         })
+    out["surfaces"] = surface_calibration(resolved)
     return out
+
+
+def _legacy_maps() -> tuple[dict, dict]:
+    from . import questions, surfaces
+    return ({q["text"]: q["id"] for q in questions.load()},
+            surfaces.probe_map())
+
+
+def _legacy_surface_answers(e: dict, qid_by_text: dict,
+                            pmap: dict) -> list[dict]:
+    """旧记录没有 surface_answers：从「主动询问」事实的 scene 反推面。
+
+    fact scene 形如「问句文本（答：是）」，用问句文本回查 id，再映射到面。
+    """
+    out = []
+    for f in e.get("facts") or []:
+        if f.get("source") != "主动询问":
+            continue
+        text = (f.get("scene") or "").split("（答：")[0]
+        qid = qid_by_text.get(text)
+        if not qid:
+            continue
+        direction = f.get("supports", "")
+        for sid in pmap.get(qid, []):
+            out.append({"surface": sid, "direction": direction})
+    return out
+
+
+def surface_calibration(resolved: list[dict]) -> list[dict]:
+    """按面统计：每个面有多少条已回答事实，其中多少条与最终结果同向。
+
+    direction=support 视为预测「会发生」，oppose 视为预测「不会发生」。
+    只陈述事实，不判断哪个面更重要。
+    """
+    agg: dict[str, dict] = {}
+    legacy = None
+    for e in resolved:
+        actual = 1 if e.get("outcome") == "yes" else 0
+        sas = e.get("surface_answers")
+        if not sas:
+            if legacy is None:
+                legacy = _legacy_maps()
+            sas = _legacy_surface_answers(e, *legacy)
+        for sa in sas:
+            sid = sa.get("surface")
+            direction = sa.get("direction")
+            if not sid or direction not in ("support", "oppose"):
+                continue
+            pred = 1 if direction == "support" else 0
+            a = agg.setdefault(sid, {"surface": sid, "facts": 0, "hits": 0,
+                                     "brier_sum": 0.0, "decisions": set()})
+            a["facts"] += 1
+            a["hits"] += 1 if pred == actual else 0
+            a["brier_sum"] += (pred - actual) ** 2
+            a["decisions"].add(e.get("decision_id") or e.get("id"))
+    rows = []
+    for sid, a in agg.items():
+        n = a["facts"]
+        rows.append({
+            "surface": sid,
+            "facts": n,
+            "decisions": len(a["decisions"]),
+            "hits": a["hits"],
+            "hit_rate": round(a["hits"] / n, 4) if n else None,
+            "brier": round(a["brier_sum"] / n, 5) if n else None,
+        })
+    return sorted(rows, key=lambda x: (-x["facts"], x["surface"]))
 
 
 def render_stats(s: dict) -> str:

@@ -101,6 +101,8 @@ rongqiu/
     extract.py          背景事实抽取
     indexer.py          三元组索引与检索
     questions.py        问句库、按原核挑面
+    input_layer.py      输入层：框架/面/gaps/固定问句
+    surfaces.py         面配置与 probe -> 面映射（按面校准用）
     review.py           方向判定（二元）
     node.py             811 结构计算
     journal.py          归档、回收、校准
@@ -153,7 +155,7 @@ rongqiu/
 |---|---|
 | 版本 | M0 + M1 第一版 |
 | 判向准确率 | 96%（25 题自建评测集） |
-| 测试 | 205 个，全绿 |
+| 测试 | 210 个，全绿 |
 | 问句库 | 59 条（16 类面，mk + domains） |
 | 本地语料 | 39 条 |
 | 三元组索引 | 789 条 |

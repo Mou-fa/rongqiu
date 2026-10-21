@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from rongqiu import baselines, calibration, common_root, crisis, drift, environment, indexer, input_layer, journal, llm, node, nucleus, origin, paths, questions, review, search, soundscape, topology  # noqa: E402
+from rongqiu import baselines, calibration, common_root, crisis, drift, environment, indexer, input_layer, journal, llm, node, nucleus, origin, paths, questions, review, search, soundscape, surfaces, topology  # noqa: E402
 
 app = FastAPI(title="绒球")
 STATIC = ROOT / "app" / "static"
@@ -180,7 +180,9 @@ def api_judge(body: JudgeBody):
     # 必须单独建、单独放，不能混进 direction_of——否则用户点的 yes
     # 会被模型重新判一遍，可能改成中性甚至反对。
     binary = (body.binary or "").strip() or input_layer.binary_of(body.question)
-    qa_facts = questions.answers_to_facts([a.model_dump() for a in body.answers])
+    qa_answers = [a.model_dump() for a in body.answers]
+    qa_facts = questions.answers_to_facts(qa_answers)
+    surface_answers = surfaces.for_answers(qa_answers, qa_facts)
 
     others = [review.SceneFact(scene=s.text, source="用户自述",
                                order=i, origin=-10 - i)
@@ -231,7 +233,8 @@ def api_judge(body: JudgeBody):
         return {"ok": False, "need": "surface",
                 "message": "还没有可判断的第一接触面。勾选一条场景，"
                            "或者把你的处境写进问题里（比如「今天身体不舒服，要不要去聚餐」）。"}
-    entry = journal.record(j, body.question, user_lean=body.user_lean)
+    entry = journal.record(j, body.question, user_lean=body.user_lean,
+                           surface_answers=surface_answers)
     # 跨决定共同根因：这个决定有没有和别的决定共享同一个面。
     # 只陈述结构，不给建议。
     related = common_root.related_to(entry["id"])

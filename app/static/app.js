@@ -1061,6 +1061,25 @@ function renderThreeWay(s) {
   return h;
 }
 
+function renderSurfaceTable(s) {
+  const rows = s.surfaces || [];
+  let h = '<div class="label" style="margin-top:20px">按面校准</div>';
+  if (!rows.length) {
+    return h + '<p class="hint">还没有带面标记的回收记录。回答固定问句后再回收，才会按面统计。</p>';
+  }
+  h += '<div class="tbl"><div class="tr th"><span>面</span><span>事实</span><span>决策</span>' +
+    '<span>命中率</span><span>Brier</span></div>';
+  rows.forEach(function (r) {
+    const enough = r.facts >= 5;
+    h += '<div class="tr"><span>' + esc(SURFACE_NAMES[r.surface] || r.surface) + '</span>' +
+      '<span>' + r.facts + '</span><span>' + r.decisions + '</span>' +
+      '<span>' + (enough ? pct(r.hit_rate) : '—') + '</span>' +
+      '<span>' + (enough && r.brier != null ? r.brier.toFixed(3) : '—') + '</span></div>';
+  });
+  h += '</div><p class="hint">少于 5 条事实的面不显示命中率，只累计样本。旧记录按「主动询问」事实自动回填面。</p>';
+  return h;
+}
+
 function renderCalibration(s, b) {
   const res = s.resolved;
   const sk = s.chance_skill == null ? "—" : s.chance_skill.toFixed(3);
@@ -1093,6 +1112,7 @@ function renderCalibration(s, b) {
       calWait(s.three_way ? s.three_way.samples : 0, 3, "三方对照（提问时选『你的直觉』）"));
   }
   h += '</div>';
+  h += renderSurfaceTable(s);
   if (b) h += renderBaselines(b);
   if (s.by_category && s.by_category.length) {
     h += '<div class="label" style="margin-top:20px">按决定类型</div>';
