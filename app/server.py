@@ -35,6 +35,7 @@ class AskBody(BaseModel):
     question: str
     lat: float | None = None      # 浏览器授权定位后才有
     lon: float | None = None
+    region: str = ""              # 当前地区（只用于危机本地快照）
 
 
 class SelectedItem(BaseModel):
@@ -63,13 +64,14 @@ class JudgeBody(BaseModel):
     assumption: str = ""
     unknown: str = ""
     user_lean: str | None = None          # 用户自己的直觉：yes / no；不选就是 None
+    region: str = ""                      # 当前地区（只用于危机本地快照）
 
 
 def _crisis_response(payload: dict, source: str) -> dict:
     """固定危机回应 + 本机完整快照。保存失败不影响回应。"""
     resp = crisis.response()
     try:
-        saved = crisis_store.save(payload, source, journal_path=journal.JOURNAL)
+        saved = crisis_store.save(payload, source)
         resp["saved_locally"] = bool(saved.get("ok"))
         if saved.get("ok"):
             resp["saved_event_id"] = saved.get("event_id")
@@ -84,7 +86,7 @@ def api_ask(body: AskBody):
     # 见 docs/REDLINES.md 第三部分；先把这一刻留在本机。
     if crisis.detect(body.question):
         return _crisis_response({"question": body.question,
-                                 "lat": body.lat, "lon": body.lon}, "ask")
+                                 "region": body.region}, "ask")
 
     offline = False
     compiled = input_layer.compile(body.question)
@@ -187,7 +189,8 @@ def api_ask(body: AskBody):
 def api_judge(body: JudgeBody):
     # 安全例外同样适用：用户的问题和自述，任何一段命中都立刻停。
     if crisis.detect_any([body.question] + [x.text for x in body.stated]):
-        return _crisis_response(body.model_dump(), "judge")
+        return _crisis_response({"question": body.question,
+                                 "region": body.region}, "judge")
 
     # 主动询问的 yes/no 回答：方向由用户点击直接决定，不经过模型。
     # 必须单独建、单独放，不能混进 direction_of——否则用户点的 yes

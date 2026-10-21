@@ -186,7 +186,8 @@ def test_crisis_snapshot_written_locally(tmp_path, monkeypatch):
     monkeypatch.setattr(journal, "JOURNAL", tmp_path / "journal.jsonl")
     from app.server import AskBody, api_ask
 
-    out = api_ask(AskBody(question="我想轻生", lat=31.2, lon=121.5))
+    out = api_ask(AskBody(question="我想轻生", lat=31.2, lon=121.5,
+                          region="湖北省恩施土家族苗族自治州"))
     assert out["crisis"] is True
     assert out["saved_locally"] is True
     files = [p for p in (tmp_path / "crisis").glob("*.json")
@@ -196,6 +197,8 @@ def test_crisis_snapshot_written_locally(tmp_path, monkeypatch):
     assert rec["source"] == "ask"
     assert rec["request"]["question"] == "我想轻生"
     assert rec["saved_at"] and rec["timezone"]
-    # 请求里的当前数据全部保留（含坐标）
-    assert rec["request"]["lat"] == 31.2
-    assert rec["request"]["lon"] == 121.5
+    # 只保留第一接触面：问题、时间、地区
+    assert rec["request"]["region"] == "湖北省恩施土家族苗族自治州"
+    assert "lat" not in rec["request"]
+    assert "lon" not in rec["request"]
+    assert not list((tmp_path / "crisis").glob("*.journal.jsonl"))

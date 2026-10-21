@@ -33,9 +33,6 @@ def export_event(event_id: str, out_dir: str | Path) -> dict:
 
     out.mkdir(parents=True, exist_ok=True)
     copied = [src, manifest]
-    journal_copy = folder / (event_id + ".journal.jsonl")
-    if journal_copy.exists():
-        copied.append(journal_copy)
     for p in copied:
         shutil.copy2(p, out / p.name)
 
@@ -50,8 +47,7 @@ def export_event(event_id: str, out_dir: str | Path) -> dict:
         f"导出时间：{datetime.now().astimezone().isoformat(timespec='seconds')}",
         "",
         "文件：",
-        f"- {event_id}.json：原始请求 + 本地时间/时区",
-        f"- {event_id}.journal.jsonl：记录时刻的 journal 副本（如有）",
+        f"- {event_id}.json：第一接触面（问题、时间、地区）",
         f"- {event_id}.manifest.json：SHA-256 清单",
         "- SHA256SUMS：本目录副本的 SHA-256 汇总",
         "",
@@ -61,6 +57,7 @@ def export_event(event_id: str, out_dir: str | Path) -> dict:
         "",
         "说明：",
         "- 本导出由设备持有者主动执行；绒球没有云端副本，不会自动发送给任何人。",
+        "- 只包含第一接触面（问题、时间、地区），不包含历史判断、回答或完整 journal。",
         "- 哈希只能证明文件未被改动，不能证明内容真实或作者身份。",
         "- 请在合法、知情、必要的前提下使用；不要把它变成对当事人的二次伤害。",
         "",

@@ -19,10 +19,15 @@ from rongqiu import crisis_export
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--list", action="store_true", help="列出本机危机记录")
+    p.add_argument("--migrate", action="store_true", help="把旧快照收敛为只保留问题/时间/地区")
     p.add_argument("--event", help="事件 ID")
     p.add_argument("--out", help="导出目录（必须为空或不存在）")
     args = p.parse_args()
 
+    if args.migrate:
+        from rongqiu import crisis_store
+        print(json.dumps(crisis_store.migrate_v2(), ensure_ascii=False, indent=1))
+        return 0
     if args.list:
         events = crisis_export.list_events()
         print(json.dumps(events, ensure_ascii=False, indent=1))

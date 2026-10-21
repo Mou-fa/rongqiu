@@ -22,12 +22,13 @@
 - 判断记录存在本地 `data/journal.jsonl`。
 - 三元组索引存在本地 `data/triple_index.json`。
 - 搜索缓存存在本地 `data/search_cache/`。
-- **危机触发时**，会在本地 `data/crisis/` 写一份完整快照：
-  - 用户此刻提供的全部请求数据（问题、自述、勾选、回答、坐标等）；
+- **危机触发时**，会在本地 `data/crisis/` 写一份最小快照：
+  - 第一接触面：问题、地区；
   - 本地时间、UTC、时区、UTC 偏移；
-  - 当时的 `journal.jsonl` 副本；
+  - SHA-256 清单；
+  - **不保存回答、自述、历史判断或 journal 副本**；
   - 只写本机，不上传、不进入校准、不参与统计；`data/` 已被 git 忽略。
-  - 每个事件带 SHA-256 清单；`scripts/export_crisis.py` 可在本地导出可核验副本。
+  - `scripts/export_crisis.py` 可在本地导出可核验副本。
   - **不会自动交给警方或家属**；第三方访问边界见 [CRISIS-RECORD.md](CRISIS-RECORD.md)。
   - 这是用户明确要求保留的内容型本地记录，也是当前唯一不遵守「只留形状」的本地数据；删除时直接删 `data/crisis/` 即可，加密要等 B1/B3 底座层。
 - **代码和文档有 git 远程**（github.com/Mou-fa/rongqiu），但 `data/`、`configs/llm.yaml`、`configs/search.yaml` 被 git 忽略，不会随代码推送。

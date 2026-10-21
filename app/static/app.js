@@ -116,6 +116,12 @@ const SURFACE_NAMES = {
   "decision.safety": "安全"
 };
 
+function envRegion() {
+  const found = (STATE.env || []).find(x =>
+    typeof x === "string" && x.indexOf("我在") === 0);
+  return found ? found.replace(/^我在/, "") : "";
+}
+
 async function ask() {
   const q = $("#question").value.trim();
   if (!q) return;
@@ -123,7 +129,7 @@ async function ask() {
   const btn = $("#btn-ask");
   btn.disabled = true; btn.textContent = "正在检索和判断…（约 20-40 秒）";
   try {
-    const body = { question: q };
+    const body = { question: q, region: envRegion() };
     if (STATE.coords) { body.lat = STATE.coords.lat; body.lon = STATE.coords.lon; }
     const d = await post("/api/ask", body);
     // 安全例外：命中最优先。不进入任何判断流程。
@@ -548,6 +554,7 @@ async function judgeAgain() {
   try {
     const d = await post("/api/judge", {
       question: STATE.query, binary: STATE.nucleus.binary,
+      region: envRegion(),
       selected, stated,
       answers: STATE.answers || [],
       // 把「这次实际问了哪些」带回服务端，才能算出「探到但没答」的面 → 半知
