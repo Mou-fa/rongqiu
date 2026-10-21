@@ -202,3 +202,24 @@ def test_crisis_snapshot_written_locally(tmp_path, monkeypatch):
     assert "lat" not in rec["request"]
     assert "lon" not in rec["request"]
     assert not list((tmp_path / "crisis").glob("*.journal.jsonl"))
+
+
+def test_api_ask_unknown_returns_clarify():
+    pytest.importorskip("fastapi")
+    from app.server import AskBody, api_ask
+
+    out = api_ask(AskBody(question="我不知道该怎么办"))
+    assert out["frame"] == "unknown"
+    assert out["clarify"]["needed"] is True
+    assert out["questions"] == []
+    assert out["nucleus"]["binary"] == ""
+
+
+def test_api_ask_chat_returns_clarify():
+    pytest.importorskip("fastapi")
+    from app.server import AskBody, api_ask
+
+    out = api_ask(AskBody(question="早上好"))
+    assert out["frame"] == "chat"
+    assert out["clarify"]["reason"] == "chat"
+    assert out["questions"] == []

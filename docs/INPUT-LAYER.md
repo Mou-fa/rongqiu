@@ -41,15 +41,16 @@ LLM 只负责原核解析与搜索，不负责挑面。
 
 ---
 
-## CIR v1 契约
+## CIR v1.1 契约
 
 `input_layer.compile(question)` 的输出是下游唯一入口：
 
 | 字段 | 含义 |
 |---|---|
-| `ir_version` | 当前 `cir_input_v1`；改接口必须升版本 |
-| `frame` | decision / vent / crisis / chat |
-| `binary` | 从原句抽出的二元问题对象 |
+| `ir_version` | 当前 `cir_input_v1.1`；改接口必须升版本 |
+| `frame` | decision / vent / crisis / chat / unknown |
+| `binary` | 从原句抽出的二元问题对象；只有 decision 非空 |
+| `clarify` | 是否需要先确认「你在问什么」；unknown/chat 时 needed=true |
 | `surfaces` | 命中的面类别，每个带 name / confidence / evidence（pattern、span） |
 | `gaps` | 该补的面 |
 | `question_ids` | 本次挑出的固定问句 |
@@ -58,6 +59,13 @@ LLM 只负责原核解析与搜索，不负责挑面。
 
 下游（分析/计数/输出）只能吃这个结构，不能自己重新解释原句。
 改字段、改语义必须改 `ir_version`。
+
+### unknown / chat 不进入 811
+
+- 不清楚「这是不是一个决定」时，frame=unknown，返回一个澄清问题；
+- 纯聊天/问候时，frame=chat，同样不启动 811；
+- 两者 question_ids 为空，不下结论；
+- 只有 decision 才抽 binary 和问句；vent 保留面但不强推结论。
 
 ## 在线 / 离线
 

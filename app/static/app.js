@@ -185,6 +185,25 @@ function showCrisis(d) {
 }
 
 function renderAll(d) {
+  const clarifyBox = $("#ask-clarify");
+  if (d && d.clarify && d.clarify.needed) {
+    if (clarifyBox) {
+      clarifyBox.innerHTML =
+        '<div class="clarify-card"><div class="label">先确认一下</div>' +
+        '<p class="clarify-q">' + esc(d.clarify.question || "") + '</p>' +
+        (d.clarify.hint
+          ? '<p class="hint">' + esc(d.clarify.hint) + '</p>'
+          : '') + '</div>';
+    }
+    $("#structure").innerHTML = "";
+    $("#ask-question").innerHTML = "";
+    $("#prompts").innerHTML = "";
+    renderRelated([]);
+    renderGap(null);
+    return;
+  }
+  if (clarifyBox) clarifyBox.innerHTML = "";
+
   const n = STATE.nucleus;
 
   // 原核

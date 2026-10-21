@@ -14,7 +14,7 @@ from . import crisis
 from .nucleus import Nucleus
 from .paths import config_file
 
-IR_VERSION = "cir_input_v1"
+IR_VERSION = "cir_input_v1.1"
 
 SURFACES_PATH = config_file("surfaces.jsonl")
 LEXICON_PATH = config_file("lexicon.jsonl")
@@ -43,6 +43,14 @@ VENT_MARKERS = ("累", "烦", "焦虑", "难受", "压力", "委屈", "想哭",
                 "崩溃", "纠结", "内耗", "睡不着", "疲惫",
                 "心情", "乱糟糟", "睡不好", "没精神", "没意思",
                 "低落", "不想动", "烦死")
+
+CHAT_MARKERS = ("在吗", "在不在", "你好", "早上好", "晚上好", "午安",
+                "晚安", "谢谢", "哈哈", "嗯", "哦", "好的", "收到",
+                "辛苦了", "随便聊聊", "没事", "嗨")
+
+CLARIFY_MARKERS = ("不知道", "怎么办", "该选", "选哪个", "怎么选",
+                   "你觉得", "帮我想想", "可以吗", "行不行", "好不好",
+                   "拿不准", "犹豫")
 
 _EITHER = re.compile(r"^(.*?)(?:还是)(.+?)[?？]?$")
 
@@ -133,10 +141,17 @@ def frame_of(question: str) -> str:
     text = (question or "").strip()
     if crisis.detect(text):
         return "crisis"
-    if any(m in text for m in DECISION_MARKERS) or _EITHER.search(text):
+    if any(m in text for m in DECISION_MARKERS):
+        return "decision"
+    if _EITHER.search(text) and not any(x in text for x in
+                                       ("还是算了", "还是不要", "还是不了")):
         return "decision"
     if any(m in text for m in VENT_MARKERS):
         return "vent"
+    if any(m in text for m in CHAT_MARKERS) or len(text) <= 2:
+        return "chat"
+    if any(m in text for m in CLARIFY_MARKERS) or text.endswith(("?", "？")):
+        return "unknown"
     return "chat"
 
 
@@ -161,20 +176,46 @@ def binary_of(question: str) -> str:
     return text.strip("，。！？?！,.;：: ")
 
 
+def clarify_for(frame: str) -> dict:
+    """确定是否需要先把「这句话是什么」问清楚。"""
+    if frame == "unknown":
+        return {
+            "needed": True,
+            "reason": "ambiguous",
+            "question": "这句话更像聊天或还没形成决定。你是在犹豫要不要做某件事吗？",
+            "hint": "如果是在犹豫，可以把它写成「要不要……」；如果只是想说说，也可以直接说。",
+        }
+    if frame == "chat":
+        return {
+            "needed": True,
+            "reason": "chat",
+            "question": "这是一句聊天，我不会启动判断。",
+            "hint": "如果你有正在犹豫的事，可以直接说「要不要……」；如果只是想说说，也可以。",
+        }
+    return {"needed": False, "reason": frame}
+
+
 def parse(question: str) -> Nucleus:
-    return Nucleus(agent="", event="", resource="", binary=binary_of(question),
+    frame = frame_of(question)
+    return Nucleus(agent="", event="", resource="",
+                   binary=binary_of(question) if frame == "decision" else "",
                    raw_question=question or "")
 
 
 def compile(question: str) -> dict:
-    """CIR v1：框架 + binary + 面（含证据）+ 缺口 + 问句。"""
+    """CIR v1.1：框架 + binary + 面（含证据）+ 缺口 + 问句 + 澄清。"""
+    frame = frame_of(question)
+    clarify = clarify_for(frame)
     hits = match_surfaces(question or "")
     gaps = gaps_for(hits)
-    question_ids = [q["id"] for q in select_questions(question, hits=hits)]
+    question_ids = ([q["id"] for q in
+                     select_questions(question, hits=hits, frame=frame)]
+                    if frame not in ("unknown", "chat") else [])
     core = {
         "ir_version": IR_VERSION,
-        "frame": frame_of(question),
-        "binary": binary_of(question),
+        "frame": frame,
+        "binary": binary_of(question) if frame == "decision" else "",
+        "clarify": clarify,
         "surfaces": hits,
         "gaps": gaps,
         "question_ids": question_ids,
@@ -183,6 +224,8 @@ def compile(question: str) -> dict:
         "ir_version": core["ir_version"],
         "frame": core["frame"],
         "binary": core["binary"],
+        "clarify": {"needed": clarify.get("needed"),
+                    "reason": clarify.get("reason")},
         "surfaces": [{"surface_id": s["surface_id"], "confidence": s["confidence"]}
                      for s in core["surfaces"]],
         "gaps": core["gaps"],
@@ -198,10 +241,15 @@ def compile(question: str) -> dict:
 
 
 def select_questions(question: str, has_history: bool = False,
-                     limit: int = 10, hits: list[dict] | None = None) -> list[dict]:
+                     limit: int = 10, hits: list[dict] | None = None,
+                     frame: str | None = None) -> list[dict]:
     """按 lexicon 命中的面 + 缺口，从问句库挑这次该问的固定问句。"""
     from . import questions
 
+    if frame is None:
+        frame = frame_of(question)
+    if frame in ("unknown", "chat"):
+        return []
     bank = {q["id"]: q for q in questions.load()}
     if not bank:
         return []

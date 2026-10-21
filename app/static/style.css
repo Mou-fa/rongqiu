@@ -242,6 +242,9 @@ button.mini.no:hover { border-color: var(--warn); color: var(--warn); }
   background: #fff; }
 .askbar { margin-top: 9px; display: flex; justify-content: flex-end; }
 .surfaceline { font-size: 11.5px; color: var(--ink-3); margin: 10px 0 2px; }
+.clarify-card { background: #fff; border: 1px solid var(--line);
+  border-radius: 12px; padding: 16px 18px; margin: 10px 0 16px; }
+.clarify-q { font-size: 14px; color: var(--ink); margin: 8px 0; line-height: 1.6; }
 .surfquota { font-size: 11.5px; color: var(--ink-3); margin: 12px 0 6px; }
 .yn { flex: 0 0 auto; display: flex; gap: 6px; margin: 0; justify-content: flex-end; }
 .ynbtn { padding: 5px 12px; min-width: 46px; border-radius: 999px;

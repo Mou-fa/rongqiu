@@ -26,8 +26,13 @@ def test_select_questions_spreads_across_surfaces():
 
 
 def test_select_questions_fallback_when_no_surface():
-    qs = input_layer.select_questions("今天天气不错")
+    qs = input_layer.select_questions("最近有点累")
     assert 1 <= len(qs) <= 10
+
+
+def test_chat_and_unknown_do_not_ask_probes():
+    assert input_layer.select_questions("今天天气不错") == []
+    assert input_layer.select_questions("我不知道该怎么办") == []
 
 
 def test_water_safety_does_not_ask_money():
@@ -81,7 +86,7 @@ def test_golden_input_layer_cases():
 def test_cir_v1_contract():
     a = input_layer.compile("今天好累，要不要出去玩？")
     b = input_layer.compile("今天好累，要不要出去玩？")
-    assert a["ir_version"] == "cir_input_v1"
+    assert a["ir_version"] == "cir_input_v1.1"
     assert len(a["ir_hash"]) == 40
     assert a["ir_hash"] == b["ir_hash"]          # 确定性
     assert a["diagnostics"]["surface_count"] >= 13
@@ -95,3 +100,22 @@ def test_cir_hash_changes_with_input():
     a = input_layer.compile("今天好累，要不要出去玩？")
     b = input_layer.compile("该不该跟对象分手？")
     assert a["ir_hash"] != b["ir_hash"]
+
+
+def test_unknown_and_chat_clarify():
+    unknown = input_layer.compile("我不知道该怎么办")
+    assert unknown["frame"] == "unknown"
+    assert unknown["clarify"]["needed"] is True
+    assert unknown["binary"] == ""
+    assert unknown["question_ids"] == []
+
+    chat = input_layer.compile("早上好")
+    assert chat["frame"] == "chat"
+    assert chat["clarify"]["reason"] == "chat"
+    assert chat["question_ids"] == []
+
+
+def test_decision_does_not_need_clarify():
+    c = input_layer.compile("今天好累，要不要出去玩？")
+    assert c["clarify"]["needed"] is False
+    assert c["question_ids"]

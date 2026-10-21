@@ -90,6 +90,24 @@ def api_ask(body: AskBody):
 
     offline = False
     compiled = input_layer.compile(body.question)
+    if compiled["frame"] in ("unknown", "chat"):
+        nu = input_layer.parse(body.question)
+        return {
+            "nucleus": nu.as_dict(),
+            "query": "", "terms": [], "provider": "local",
+            "candidates": [], "stated": [], "auto": None,
+            "related": [], "gap": None, "env": [],
+            "questions": [], "probe_count": 0,
+            "surface_quota": questions.surface_quota(),
+            "frame": compiled["frame"],
+            "surfaces": compiled["surfaces"],
+            "gaps": compiled["gaps"],
+            "clarify": compiled["clarify"],
+            "ir_version": compiled.get("ir_version"),
+            "ir_hash": compiled.get("ir_hash"),
+            "diagnostics": compiled.get("diagnostics"),
+            "short_circuit": "clarify",
+        }
     try:
         nu = nucleus.parse(body.question)
         cfg = search.load_config()

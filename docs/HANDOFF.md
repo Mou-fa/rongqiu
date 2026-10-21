@@ -40,7 +40,7 @@
 
 ```
 提交        86 个
-测试        244 个，全绿
+测试        249 个，全绿
 模块        22 个（rongqiu/ 20 + app/ 2）
 判向准确率   96%（25 题自建评测集）
 判断日志     204 条（0 条已回收）
@@ -253,8 +253,8 @@ python scripts/gh.py info     # 看 GitHub 仓库状态
   同一句话同一天重判只算一个决策（append revision，latest 胜）；跨天算新决策；
   旧数据没有 decision_id 的，按 nucleus + 日期归并。
   效果：现有 journal 207 条 → **24 个决策**（2 已回收 / 22 待回收），校准不再重复计数。
-- 测试从 193 增到 **244**（journal 去重、pending API、离线/在线输入层、按面校准）。
-- **输入层**：`input_layer` 输出 **CIR v1**（ir_version / frame / binary / surfaces 带 name+evidence / gaps / probes / diagnostics / ir_hash，确定性哈希）；lexicon 补换城市、报班等动作；
+- 测试从 193 增到 **249**（journal 去重、pending API、离线/在线输入层、按面校准）。
+- **输入层**：`input_layer` 输出 **CIR v1.1**（ir_version / frame / binary / clarify / surfaces 带 name+evidence / gaps / probes / diagnostics / ir_hash，确定性哈希）；新增 unknown/chat 框架：不启动判断，只给出澄清提示；lexicon 补换城市、报班等动作；
 - **输入层规则**：`input_layer` 用确定性规则取 binary + 框架 + lexicon 命中面 + gaps；
   `/api/ask` 无论在线/离线都按面轮转挑 10 条问句，LLM 只做原核/搜索，不再自由挑面。
   `/api/judge` 用 probe 答复生成事实并完成一次 811 判断（不调模型）。
