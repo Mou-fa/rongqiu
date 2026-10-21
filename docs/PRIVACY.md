@@ -22,7 +22,13 @@
 - 判断记录存在本地 `data/journal.jsonl`。
 - 三元组索引存在本地 `data/triple_index.json`。
 - 搜索缓存存在本地 `data/search_cache/`。
-- **没有 git 远程仓库**，代码和文档不会自动推送到任何地方。
+- **危机触发时**，会在本地 `data/crisis/` 写一份完整快照：
+  - 用户此刻提供的全部请求数据（问题、自述、勾选、回答、坐标等）；
+  - 本地时间、UTC、时区、UTC 偏移；
+  - 当时的 `journal.jsonl` 副本；
+  - 只写本机，不上传、不进入校准、不参与统计；`data/` 已被 git 忽略。
+  - 这是用户明确要求保留的内容型本地记录，也是当前唯一不遵守「只留形状」的本地数据；删除时直接删 `data/crisis/` 即可，加密要等 B1/B3 底座层。
+- **代码和文档有 git 远程**（github.com/Mou-fa/rongqiu），但 `data/`、`configs/llm.yaml`、`configs/search.yaml` 被 git 忽略，不会随代码推送。
 
 ## 三、如果要做成「完全离线」
 
@@ -36,10 +42,9 @@
 ## 四、密钥管理
 
 - `configs/search.yaml`、`configs/llm.yaml` 都已加入 `.gitignore`
-- `configs/search.yaml` 曾在一小时内被 git 跟踪过（commit bbbcaa4），
-  已从跟踪中移除。**因为仓库没有远程，它没有通过 git 离开这台机器。**
-- 但历史里仍然留着一份。**建议直接去 Tavily 后台把这个 key 作废、重新生成一个。**
-  这是最省事、最彻底的做法——作废之后历史里那份就是废纸。
+- `configs/search.yaml` 曾在一小时内被 git 跟踪过（commit bbbcaa4），已从跟踪中移除；
+  但 git 历史里仍然留着一份，且仓库已有远程。**如果这个 key 还没作废，先去 Tavily 后台作废并重新生成。**
+  作废之后历史里那份就是废纸；要彻底清掉历史需要改写提交并 force push。
 
 ## 五、这个文件管不到的部分
 

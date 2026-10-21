@@ -87,8 +87,11 @@ def test_response_shape():
 
 # ---------- 接口级：必须短路，不能产出结构 ----------
 
-def test_api_ask_short_circuits():
+def test_api_ask_short_circuits(tmp_path, monkeypatch):
     pytest.importorskip("fastapi")
+    from rongqiu import crisis_store, journal
+    monkeypatch.setattr(crisis_store, "DATA", tmp_path)
+    monkeypatch.setattr(journal, "JOURNAL", tmp_path / "journal.jsonl")
     from app.server import AskBody, api_ask
 
     out = api_ask(AskBody(question="我不想活了"))
@@ -161,8 +164,11 @@ def test_extra_benign_not_flagged(text):
     assert crisis.detect(text) is False, f"误报良性表达：{text}"
 
 
-def test_judge_short_circuits_on_stated_light_life():
+def test_judge_short_circuits_on_stated_light_life(tmp_path, monkeypatch):
     pytest.importorskip("fastapi")
+    from rongqiu import crisis_store, journal
+    monkeypatch.setattr(crisis_store, "DATA", tmp_path)
+    monkeypatch.setattr(journal, "JOURNAL", tmp_path / "journal.jsonl")
     from app.server import JudgeBody, SelectedItem, api_judge
 
     out = api_judge(JudgeBody(question="要不要去聚餐", binary="去聚餐",
@@ -170,3 +176,25 @@ def test_judge_short_circuits_on_stated_light_life():
     assert out.get("crisis") is True
     assert "nucleus" not in out
     assert "support" in out
+
+
+def test_crisis_snapshot_written_locally(tmp_path, monkeypatch):
+    import json
+    pytest.importorskip("fastapi")
+    from rongqiu import crisis_store, journal
+    monkeypatch.setattr(crisis_store, "DATA", tmp_path)
+    monkeypatch.setattr(journal, "JOURNAL", tmp_path / "journal.jsonl")
+    from app.server import AskBody, api_ask
+
+    out = api_ask(AskBody(question="我想轻生", lat=31.2, lon=121.5))
+    assert out["crisis"] is True
+    assert out["saved_locally"] is True
+    files = list((tmp_path / "crisis").glob("*.json"))
+    assert len(files) == 1
+    rec = json.loads(files[0].read_text(encoding="utf-8"))
+    assert rec["source"] == "ask"
+    assert rec["request"]["question"] == "我想轻生"
+    assert rec["saved_at"] and rec["timezone"]
+    # 请求里的当前数据全部保留（含坐标）
+    assert rec["request"]["lat"] == 31.2
+    assert rec["request"]["lon"] == 121.5

@@ -169,6 +169,8 @@ function showCrisis(d) {
   if (say) say.innerHTML = (d.support || []).map(esc).join("<br>");
   const lead = $("#crisis-lead");
   if (lead && d.lead) lead.textContent = d.lead;
+  const saved = $("#crisis-saved");
+  if (saved) saved.classList.toggle("hidden", !d.saved_locally);
   $("#crisis-lines").innerHTML = (d.hotlines || []).map(h =>
     '<li><span class="ci-name">' + esc(h.name) + '</span>' +
     '<a class="ci-num" href="tel:' + esc(h.number) + '">' + esc(h.number) + '</a></li>'
