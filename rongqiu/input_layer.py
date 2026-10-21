@@ -6,12 +6,15 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 
 from . import crisis
 from .nucleus import Nucleus
 from .paths import config_file
+
+IR_VERSION = "cir_input_v1"
 
 SURFACES_PATH = config_file("surfaces.jsonl")
 LEXICON_PATH = config_file("lexicon.jsonl")
@@ -37,7 +40,9 @@ DECISION_MARKERS = (
     "去不去", "来不来", "买不买", "做不做", "参加不参加",
 )
 VENT_MARKERS = ("累", "烦", "焦虑", "难受", "压力", "委屈", "想哭",
-                "崩溃", "纠结", "内耗", "睡不着", "疲惫")
+                "崩溃", "纠结", "内耗", "睡不着", "疲惫",
+                "心情", "乱糟糟", "睡不好", "没精神", "没意思",
+                "低落", "不想动", "烦死")
 
 _EITHER = re.compile(r"^(.*?)(?:还是)(.+?)[?？]?$")
 
@@ -79,29 +84,44 @@ def _find(text: str, pattern: str) -> list[tuple[int, str]]:
 
 
 def match_surfaces(text: str) -> list[dict]:
-    """lexicon -> surface 命中，返回 [{surface_id, confidence}]。"""
+    """lexicon -> surface 命中，带名称与命中证据。"""
+    names = {s["surface_id"]: s.get("name") or s["surface_id"]
+             for s in load_surfaces() if s.get("surface_id")}
     agg: dict[str, float] = {}
+    evidence: dict[str, list[dict]] = {}
     for e in load_lexicon():
         surfaces = e.get("surfaces") or []
         if not surfaces:
             continue
-        matched = False
+        hits = []
         for pat in e.get("patterns") or []:
-            if _find(text, pat):
-                matched = True
-                break
-        if not matched:
+            for span, matched in _find(text, pat):
+                hits.append({"pattern": pat, "span": span,
+                             "matched": matched, "lexicon": e.get("id", "")})
+        if not hits:
             continue
         w = float(e.get("weight", 0.15))
         for sid in surfaces:
             agg[sid] = min(0.95, agg.get(sid, 0.5) + w)
+            for h in hits:
+                if len(evidence.setdefault(sid, [])) < 8:
+                    evidence[sid].append(h)
     # 兜底：lexicon 缺失时用 surfaces 自带的 triggers
     if not agg:
         for s in load_surfaces():
-            if any(t and t in text for t in (s.get("triggers") or [])):
-                agg[s["surface_id"]] = 0.6
-    return [{"surface_id": sid, "confidence": round(c, 3)}
-            for sid, c in sorted(agg.items(), key=lambda kv: (-kv[1], kv[0]))]
+            for t in (s.get("triggers") or []):
+                idx = text.find(t) if t else -1
+                if t and idx >= 0:
+                    sid = s["surface_id"]
+                    agg[sid] = 0.6
+                    evidence.setdefault(sid, []).append(
+                        {"pattern": t, "span": idx, "matched": t, "lexicon": "trigger"})
+    out = []
+    for sid, c in sorted(agg.items(), key=lambda kv: (-kv[1], kv[0])):
+        ev = sorted(evidence.get(sid, []), key=lambda x: (x["span"], x["pattern"]))
+        out.append({"surface_id": sid, "name": names.get(sid, sid),
+                    "confidence": round(c, 3), "evidence": ev})
+    return out
 
 
 def gaps_for(hits: list[dict]) -> list[str]:
@@ -147,20 +167,38 @@ def parse(question: str) -> Nucleus:
 
 
 def compile(question: str) -> dict:
-    """离线版本的 CIR-lite：框架 + 面 + 缺口 + 选中问句 id。"""
+    """CIR v1：框架 + binary + 面（含证据）+ 缺口 + 问句。"""
     hits = match_surfaces(question or "")
     gaps = gaps_for(hits)
-    return {
+    question_ids = [q["id"] for q in select_questions(question, hits=hits)]
+    core = {
+        "ir_version": IR_VERSION,
         "frame": frame_of(question),
         "binary": binary_of(question),
         "surfaces": hits,
         "gaps": gaps,
-        "question_ids": [q["id"] for q in select_questions(question)],
+        "question_ids": question_ids,
     }
+    canonical = json.dumps({
+        "ir_version": core["ir_version"],
+        "frame": core["frame"],
+        "binary": core["binary"],
+        "surfaces": [{"surface_id": s["surface_id"], "confidence": s["confidence"]}
+                     for s in core["surfaces"]],
+        "gaps": core["gaps"],
+        "question_ids": core["question_ids"],
+    }, ensure_ascii=False, sort_keys=True)
+    core["diagnostics"] = {
+        "rule": "lexicon",
+        "surface_count": len(load_surfaces()),
+        "lexicon_count": len(load_lexicon()),
+    }
+    core["ir_hash"] = hashlib.sha1(canonical.encode("utf-8")).hexdigest()
+    return core
 
 
 def select_questions(question: str, has_history: bool = False,
-                     limit: int = 10) -> list[dict]:
+                     limit: int = 10, hits: list[dict] | None = None) -> list[dict]:
     """按 lexicon 命中的面 + 缺口，从问句库挑这次该问的固定问句。"""
     from . import questions
 
@@ -168,7 +206,7 @@ def select_questions(question: str, has_history: bool = False,
     if not bank:
         return []
     surfaces = {s["surface_id"]: s for s in load_surfaces()}
-    hits = match_surfaces(question or "")
+    hits = hits if hits is not None else match_surfaces(question or "")
     # 环境事实（天气/时间等）只展示、不进面；如果只提到天气，hits 会是空的。
     core_hit = any(h["surface_id"] in CORE_SURFACES for h in hits)
     gaps = gaps_for(hits) if core_hit else []

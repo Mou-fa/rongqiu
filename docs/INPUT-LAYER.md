@@ -41,6 +41,24 @@ LLM 只负责原核解析与搜索，不负责挑面。
 
 ---
 
+## CIR v1 契约
+
+`input_layer.compile(question)` 的输出是下游唯一入口：
+
+| 字段 | 含义 |
+|---|---|
+| `ir_version` | 当前 `cir_input_v1`；改接口必须升版本 |
+| `frame` | decision / vent / crisis / chat |
+| `binary` | 从原句抽出的二元问题对象 |
+| `surfaces` | 命中的面类别，每个带 name / confidence / evidence（pattern、span） |
+| `gaps` | 该补的面 |
+| `question_ids` | 本次挑出的固定问句 |
+| `diagnostics` | 规则名、surface 数、lexicon 数 |
+| `ir_hash` | 确定性哈希，不含时间；同输入同输出 |
+
+下游（分析/计数/输出）只能吃这个结构，不能自己重新解释原句。
+改字段、改语义必须改 `ir_version`。
+
 ## 在线 / 离线
 
 **在线**（有 LLM / 搜索）：

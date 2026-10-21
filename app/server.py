@@ -171,6 +171,9 @@ def api_ask(body: AskBody):
         "frame": compiled["frame"],
         "surfaces": compiled["surfaces"],
         "gaps": compiled["gaps"],
+        "ir_version": compiled.get("ir_version"),
+        "ir_hash": compiled.get("ir_hash"),
+        "diagnostics": compiled.get("diagnostics"),
         "auto": auto,
         # 跨决定共同根因：这个决定和别的决定共享的面（只陈述，不引导）
         "related": related if stated else [],
