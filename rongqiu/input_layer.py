@@ -16,6 +16,14 @@ from .paths import config_file
 SURFACES_PATH = config_file("surfaces.jsonl")
 LEXICON_PATH = config_file("lexicon.jsonl")
 
+UNIVERSAL_PROBES = ["last_time", "still_waiting"]
+
+# 这些面在场时，才把 baseline gaps 补进来；否则只问和当前动作有关的面。
+CORE_SURFACES = {
+    "decision.economic", "decision.time", "decision.career",
+    "decision.relationship", "decision.eligibility", "decision.information",
+}
+
 BASELINE_GAPS = [
     "decision.economic",
     "decision.time",
@@ -161,10 +169,17 @@ def select_questions(question: str, has_history: bool = False,
         return []
     surfaces = {s["surface_id"]: s for s in load_surfaces()}
     hits = match_surfaces(question or "")
-    gaps = gaps_for(hits)
+    # 环境事实（天气/时间等）只展示、不进面；如果只提到天气，hits 会是空的。
+    core_hit = any(h["surface_id"] in CORE_SURFACES for h in hits)
+    gaps = gaps_for(hits) if core_hit else []
     order = [h["surface_id"] for h in hits] + gaps
-    # 按面轮转取样：先每个面一条，再第二圈；避免被某一个面刷满名额。
-    queues: list[list[str]] = []
+
+    # 先放两条通用 probe：过去行为 + 是否反复想。它们对几乎所有决定都成立。
+    ids: list[str] = [pid for pid in UNIVERSAL_PROBES
+                      if pid in bank and not (bank[pid].get("when") == "first_time" and has_history)]
+
+    # 每个面一条；核心域再轮转补到 limit，非核心域只取第一圈（避免用财务/收入类问题凑数）。
+    per_surface: list[list[str]] = []
     for sid in order:
         probes = []
         for pid in (surfaces.get(sid, {}).get("probes") or []):
@@ -175,12 +190,12 @@ def select_questions(question: str, has_history: bool = False,
                 continue
             probes.append(pid)
         if probes:
-            queues.append(probes)
-    ids: list[str] = []
-    round_idx = 0
-    while len(ids) < limit:
+            per_surface.append(probes)
+
+    max_rounds = 10 if core_hit else 1
+    for round_idx in range(max_rounds):
         added = False
-        for probes in queues:
+        for probes in per_surface:
             if round_idx < len(probes):
                 pid = probes[round_idx]
                 if pid not in ids:
@@ -188,12 +203,8 @@ def select_questions(question: str, has_history: bool = False,
                     added = True
             if len(ids) >= limit:
                 break
-        round_idx += 1
-        if not added:
+        if len(ids) >= limit or not added:
             break
-    if not ids:
-        pool = [q for q in questions.load()
-                if not (q.get("when") == "first_time" and has_history)]
-        return pool[:max(1, limit)]
-    return [bank[i] for i in ids]
+
+    return [bank[i] for i in ids if i in bank][:max(1, limit)]
 

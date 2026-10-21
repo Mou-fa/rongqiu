@@ -27,3 +27,4 @@
 {"id": "entity.alternatives", "kind": "entity", "category": "alternatives", "surfaces": ["decision.alternatives"], "patterns": ["还是", "另一个", "换一个", "不如", "在家", "不去", "放弃", "替代", "备选"], "weight": 0.2, "allow_single": false, "notes": ""}
 {"id": "entity.convenience", "kind": "entity", "category": "convenience", "surfaces": ["decision.convenience"], "patterns": ["方便", "通勤", "搬家", "离得近", "住得远", "太远"], "weight": 0.2, "allow_single": false, "notes": ""}
 {"id": "marker.decision", "kind": "marker", "category": "decision", "surfaces": [], "patterns": ["要不要", "该不该", "能不能", "会不会", "是否", "还是", "值不值得", "怎么办", "咋办", "怎么选", "re:要.{0,12}吗", "re:还能.{0,12}吗", "re:想.{0,8}[?]$"], "weight": 0.0, "allow_single": false, "notes": ""}
+{"id":"action.swim","kind":"action","category":"risk","surfaces":["decision.risk","decision.self_fit"],"patterns":["下河","游泳","野泳","河边","水库","水塘","溺水","洗澡","玩水"],"weight":0.2,"allow_single":false,"notes":"户外水域/洗澡：优先问过去行为与安全习惯，不问天气（环境只展示）"}

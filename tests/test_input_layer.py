@@ -28,3 +28,12 @@ def test_select_questions_spreads_across_surfaces():
 def test_select_questions_fallback_when_no_surface():
     qs = input_layer.select_questions("今天天气不错")
     assert 1 <= len(qs) <= 10
+
+
+def test_water_safety_does_not_ask_money():
+    qs = input_layer.select_questions("天气炎热，要不要下河洗澡？")
+    ids = [q["id"] for q in qs]
+    assert "last_time" in ids and "still_waiting" in ids
+    assert "q13" in ids          # risk: 以前做过一次
+    assert "q01" not in ids      # 户外水域不是财务缺口
+    assert "q02" not in ids
