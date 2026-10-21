@@ -106,6 +106,9 @@ rongqiu/
     review.py           方向判定（二元）
     node.py             811 结构计算
     journal.py          归档、回收、校准
+    crisis.py            轻生/自伤标签与固定危机回应
+    crisis_store.py      危机本地快照 + SHA-256 清单
+    crisis_export.py     危机记录本地导出（不联网）
     environment.py      环境讯息（只展示不计面）
     search.py           多源检索
   app/                  Web 应用
@@ -141,6 +144,7 @@ rongqiu/
 | [INPUT-LAYER.md](docs/INPUT-LAYER.md) | **输入层**：框架判定、面选择、固定问句、离线/在线 |
 | [CONCEPT-EVOLUTION.md](docs/CONCEPT-EVOLUTION.md) | **概念演化**：三条不变量 / 已发生的扩展 / 待验证假设 |
 | [LAYER-MAP.md](docs/LAYER-MAP.md) | **层地图**：纵向流水线 + 11 个底座层 + 层间契约 + 优先级 |
+| [CRISIS-RECORD.md](docs/CRISIS-RECORD.md) | **危机本地记录**：保存什么、SHA-256 完整性、导出与第三方访问边界 |
 | [THEORY.md](docs/THEORY.md) | 理论：811、第一接触面、二元对立、分形 |
 | [FOUNDATIONS.md](docs/FOUNDATIONS.md) | 理论支撑：马尔可夫毯、Ashby、校准研究等 |
 | [VOICE.md](docs/VOICE.md) | 语音三层与第三层设计（研究线） |
@@ -157,7 +161,7 @@ rongqiu/
 |---|---|
 | 版本 | M0 + M1 第一版 |
 | 判向准确率 | 96%（25 题自建评测集） |
-| 测试 | 236 个，全绿 |
+| 测试 | 239 个，全绿 |
 | 问句库 | 59 条（16 类面，mk + domains） |
 | 本地语料 | 39 条 |
 | 三元组索引 | 789 条 |

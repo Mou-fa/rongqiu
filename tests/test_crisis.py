@@ -189,7 +189,8 @@ def test_crisis_snapshot_written_locally(tmp_path, monkeypatch):
     out = api_ask(AskBody(question="我想轻生", lat=31.2, lon=121.5))
     assert out["crisis"] is True
     assert out["saved_locally"] is True
-    files = list((tmp_path / "crisis").glob("*.json"))
+    files = [p for p in (tmp_path / "crisis").glob("*.json")
+             if not p.name.endswith(".manifest.json")]
     assert len(files) == 1
     rec = json.loads(files[0].read_text(encoding="utf-8"))
     assert rec["source"] == "ask"
