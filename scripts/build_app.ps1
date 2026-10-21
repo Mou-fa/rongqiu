@@ -18,6 +18,8 @@ $pyArgs = @(
   "--add-data", "configs/questions.yaml;configs",
   "--add-data", "configs/taxonomy.yaml;configs",
   "--add-data", "configs/soundscape.yaml;configs",
+  "--add-data", "configs/surfaces.jsonl;configs",
+  "--add-data", "configs/lexicon.jsonl;configs",
   "--add-data", "configs/llm.example.yaml;configs",
   "--add-data", "configs/search.example.yaml;configs",
   "--add-data", "data/triple_index.json;data",

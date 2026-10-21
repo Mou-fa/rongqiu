@@ -116,9 +116,11 @@ rongqiu/
     questions.yaml      问句库（54 条）
     taxonomy.yaml       面类别词表（16 类，可多选）
     search.yaml         搜索配置（不入库）
+    surfaces.jsonl      面与固定问句的映射（离线输入层用）
+    lexicon.jsonl       离线触发词表（实体 / 状态 / 正则）
   data/                 语料、索引、判断日志（不入库）
   scripts/              工具脚本
-  tests/                198 个测试
+  tests/                201 个测试
   docs/                 全部文档
 ```
 

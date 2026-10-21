@@ -1,6 +1,8 @@
 # 本地数据与密钥
 data/
 *.jsonl
+!configs/surfaces.jsonl
+!configs/lexicon.jsonl
 configs/llm.yaml
 configs/search.yaml
 

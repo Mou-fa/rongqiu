@@ -66,7 +66,8 @@ def ensure_home() -> None:
     CONFIG.mkdir(parents=True, exist_ok=True)
     if not FROZEN:
         return
-    for name in ("questions.yaml", "taxonomy.yaml", "soundscape.yaml"):
+    for name in ("questions.yaml", "taxonomy.yaml", "soundscape.yaml",
+                 "surfaces.jsonl", "lexicon.jsonl"):
         _copy_once(ROOT / "configs" / name, CONFIG / name)
     for name in ("triple_index.json", "local_corpus.json"):
         _copy_once(ROOT / "data" / name, DATA / name)

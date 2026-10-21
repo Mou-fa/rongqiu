@@ -132,8 +132,12 @@ def api_ask(body: AskBody):
 
     # 按原核挑面（M1 第三层的基础）：从问句库里挑这次最该问的 8–12 条。
     # 挑不出来时 select() 会退回整库——不把问题藏起来，也不假装知道该问什么。
-    selected = questions.select(nu, has_history=bool(journal.load()), limit=10,
-                                offline=offline, fallback_limit=10)
+    if offline:
+        selected = input_layer.select_questions(body.question,
+                                                 has_history=bool(journal.load()),
+                                                 limit=10)
+    else:
+        selected = questions.select(nu, has_history=bool(journal.load()), limit=10)
 
     provider = "local"
     if cfg is not None:
