@@ -34,6 +34,8 @@ def test_water_safety_does_not_ask_money():
     qs = input_layer.select_questions("天气炎热，要不要下河洗澡？")
     ids = [q["id"] for q in qs]
     assert "last_time" in ids and "still_waiting" in ids
-    assert "q13" in ids          # risk: 以前做过一次
+    assert "swim_ability" in ids
+    assert "swim_before" in ids
+    assert "swim_water_info" in ids
     assert "q01" not in ids      # 户外水域不是财务缺口
     assert "q02" not in ids

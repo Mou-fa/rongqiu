@@ -496,3 +496,51 @@ questions:
   domains:
   - 关系维系
   why: 问近期争执，反映关系紧张程度
+
+# ---
+# 2026-10-22：户外/水域安全补充（5 条，全部问行为/过去，可二元回答）
+- id: swim_ability
+  text: 你会游泳吗？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 个人适配
+  - 健康风险
+  why: 能力是稳定事实；会游泳与不会，对「下不下水」是方向性事实。
+- id: swim_companion
+  text: 你平时去玩水，通常有人一起吗？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 关系维系
+  - 风险不确定
+  why: 问过去的习惯，不问这次；有没有同伴是行为事实。
+- id: swim_before
+  text: 你以前在这种水域游过吗？
+  when: always
+  polarity: positive
+  mk: common
+  domains:
+  - 个人适配
+  - 风险不确定
+  why: 过去在同类水域的行为，比现在的意愿更能预测这次。
+- id: swim_water_info
+  text: 你以前去过的水域，有没有遇到过水流很急的地方？
+  when: always
+  polarity: negative
+  mk: common
+  domains:
+  - 风险不确定
+  - 信息真伪
+  why: 问过去见过的风险信号；见过急流，说明这类水域的危险不是想象。
+- id: swim_alt
+  text: 附近有没有可以游泳的正规场所？
+  when: always
+  polarity: negative
+  mk: cause
+  domains:
+  - 生活便利
+  - 条件门槛
+  why: 替代方案是事实；有正规场所时，下河的必要性下降。

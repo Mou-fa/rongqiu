@@ -113,7 +113,7 @@ rongqiu/
   tools/RongqiuWindow.cs 内嵌窗口宿主（C# + WebView2）
   scripts/build_app.ps1 打包脚本（PyInstaller + csc）
   configs/
-    questions.yaml      问句库（54 条）
+    questions.yaml      问句库（59 条）
     taxonomy.yaml       面类别词表（16 类，可多选）
     search.yaml         搜索配置（不入库）
     surfaces.jsonl      面与固定问句的映射（离线输入层用）

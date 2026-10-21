@@ -192,7 +192,7 @@ def select_questions(question: str, has_history: bool = False,
         if probes:
             per_surface.append(probes)
 
-    max_rounds = 10 if core_hit else 1
+    max_rounds = 10
     for round_idx in range(max_rounds):
         added = False
         for probes in per_surface:

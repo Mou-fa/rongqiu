@@ -193,7 +193,7 @@ Python 的 str `hash()` **每个进程随机化**，拿它做文件名 = 换个�
 | `configs/llm.yaml` | ❌ gitignore | 含模型 key |
 | `data/` | ❌ gitignore | 判断日志、索引、缓存、**用户隐私** |
 | `configs/*.example.yaml` | ✅ | 模板 |
-| `configs/questions.yaml` | ✅ | 问句库（这是护城河，要公开；当前 54 条） |
+| `configs/questions.yaml` | ✅ | 问句库（这是护城河，要公开；当前 59 条） |
 | `configs/surfaces.jsonl` | ✅ | 面与固定问句的映射（离线输入层） |
 | `configs/lexicon.jsonl` | ✅ | 离线触发词表（实体 / 状态 / 正则） |
 | `configs/taxonomy.yaml` | ✅ | 面类别词表（16 类 + mk 判据，和问句库共用） |
