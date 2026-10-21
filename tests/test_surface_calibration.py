@@ -62,3 +62,13 @@ def test_legacy_facts_backfill_surface():
     assert rows[0]["surface"] == "decision.safety"
     assert rows[0]["facts"] == 1
     assert rows[0]["hits"] == 1
+
+
+def test_stats_api_exposes_surfaces(tmp_path, monkeypatch):
+    _patch(tmp_path, monkeypatch)
+    e = journal.record(_judgment(), "问题三", resolve_days=0,
+                       surface_answers=[{"surface": "decision.health", "direction": "support"}])
+    journal.resolve(e["id"], "yes")
+    out = server.api_stats()
+    assert out["surfaces"]
+    assert out["surfaces"][0]["surface"] == "decision.health"

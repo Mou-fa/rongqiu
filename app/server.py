@@ -461,6 +461,7 @@ def api_stats():
             "mean_p": s.get("mean_p"), "chance_brier": s.get("chance_brier", 0.25),
             "chance_skill": s.get("chance_skill"),
             "series": s.get("series", []), "three_way": s.get("three_way"),
+            "surfaces": s.get("surfaces", []),
             # 按决定类型的校准缺口（立项书 6.6）
             "by_category": calibration.by_category()}
 
