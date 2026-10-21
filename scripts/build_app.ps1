@@ -20,7 +20,8 @@ $pyArgs = @(
   "--add-data", "configs/search.example.yaml;configs",
   "--add-data", "data/triple_index.json;data",
   "--add-data", "data/local_corpus.json;data",
-  "--collect-all", "uvicorn"
+  "--collect-all", "uvicorn",
+  "--hidden-import", "psutil"
 )
 if (Test-Path $Icon) { $pyArgs += @("--icon", $Icon) }
 $pyArgs += "launcher.py"

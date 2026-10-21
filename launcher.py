@@ -68,6 +68,30 @@ def _find_browser() -> str | None:
     return None
 
 
+def _browser_has_profile(profile: str) -> bool:
+    """Edge/Chrome 真正承载窗口的进程，会带着 --user-data-dir=... 启动。
+
+    Popen 拿到的那个入口进程可能很快退出（把窗口移交给新的浏览器进程），
+    所以不能 wait Popen，只能轮询带这个 profile 的进程是否还在。
+    """
+    try:
+        import psutil
+    except Exception:
+        return False
+    needle = str(profile).lower()
+    for proc in psutil.process_iter(["name", "cmdline"]):
+        try:
+            name = (proc.info.get("name") or "").lower()
+            if "msedge" not in name and "chrome" not in name:
+                continue
+            cmdline = " ".join(proc.info.get("cmdline") or []).lower()
+            if needle and needle in cmdline:
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def _wait_http(url: str, timeout: float = 30.0) -> bool:
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -178,8 +202,24 @@ def main() -> int:
                     "--no-default-browser-check",
                 ])
                 logging.info("应用窗口已打开：%s", exe)
-                browser.wait()
-                logging.info("应用窗口已关闭")
+                seen = False
+                deadline = time.time() + 60
+                while time.time() < deadline:
+                    if _browser_has_profile(str(profile)):
+                        seen = True
+                        break
+                    time.sleep(1)
+                if seen:
+                    while _browser_has_profile(str(profile)):
+                        time.sleep(2)
+                    logging.info("应用窗口已关闭")
+                else:
+                    logging.warning("没有检测到应用窗口进程，保持服务运行，等待退出")
+                    try:
+                        webbrowser.open(url)
+                    except Exception:
+                        pass
+                    browser = None
     except Exception:
         logging.exception("窗口启动失败，退回默认浏览器")
         try:
