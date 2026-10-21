@@ -63,7 +63,6 @@ class JudgeBody(BaseModel):
     assumption: str = ""
     unknown: str = ""
     user_lean: str | None = None          # 用户自己的直觉：yes / no；不选就是 None
-    user_lean: str | None = None   # 用户自己的直觉：yes / no；不选就是 None
 
 
 @app.post("/api/ask")
@@ -172,8 +171,8 @@ def api_ask(body: AskBody):
 
 @app.post("/api/judge")
 def api_judge(body: JudgeBody):
-    # 安全例外同样适用：任何一步输入命中，都立刻停。
-    if crisis.detect(body.question):
+    # 安全例外同样适用：用户的问题和自述，任何一段命中都立刻停。
+    if crisis.detect_any([body.question] + [x.text for x in body.stated]):
         return crisis.response()
 
     # 主动询问的 yes/no 回答：方向由用户点击直接决定，不经过模型。

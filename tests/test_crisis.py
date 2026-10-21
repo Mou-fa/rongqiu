@@ -109,3 +109,64 @@ def test_response_support_lines():
     assert "不想让你一个人待着" in blob
     for forbidden in ["建议", "应该", "会好起来", "坚强", "结构", "置信", "放弃", "遗憾"]:
         assert forbidden not in blob, f"支持文案里不该出现「{forbidden}」"
+
+
+# ---------- 轻生标签：词语与面都要触发 ----------
+
+LIGHT_LIFE_CASES = [
+    "我最近总想轻生",
+    "我想自我了断",
+    "活着没意思，不如死了算了",
+    "我已经写好遗书了",
+    "我想跳桥",
+    "我打算喝农药",
+    "我是家人的累赘",
+    "没有我更好",
+    "我想重开",
+    "下辈子见",
+    "我想去天堂",
+]
+
+@pytest.mark.parametrize("text", LIGHT_LIFE_CASES)
+def test_light_life_words_are_tagged(text):
+    assert crisis.detect(text) is True, f"漏报：{text}"
+
+
+def test_all_crisis_tags_are_light_life_and_trigger():
+    assert crisis.CRISIS_TAGS
+    for tag, words in crisis.CRISIS_TAGS.items():
+        assert tag.startswith("轻生."), tag
+        assert words
+        assert crisis.detect(words[0]), (tag, words[0])
+
+
+SAFE_CASES = [
+    "我不想死",
+    "我没有想过自杀",
+    "我不会轻生",
+    "我不想离开这个世界",
+    "我不想做傻事",
+    "我没想过要自杀",
+]
+
+@pytest.mark.parametrize("text", SAFE_CASES)
+def test_protective_negation_not_flagged(text):
+    assert crisis.detect(text) is False, f"误报保护性表达：{text}"
+
+
+EXTRA_BENIGN = ["跳楼机很好玩", "自杀式加班太狠了", "我想死你了", "今天累死了"]
+
+@pytest.mark.parametrize("text", EXTRA_BENIGN)
+def test_extra_benign_not_flagged(text):
+    assert crisis.detect(text) is False, f"误报良性表达：{text}"
+
+
+def test_judge_short_circuits_on_stated_light_life():
+    pytest.importorskip("fastapi")
+    from app.server import JudgeBody, SelectedItem, api_judge
+
+    out = api_judge(JudgeBody(question="要不要去聚餐", binary="去聚餐",
+                              stated=[SelectedItem(text="我最近总想轻生")]))
+    assert out.get("crisis") is True
+    assert "nucleus" not in out
+    assert "support" in out
