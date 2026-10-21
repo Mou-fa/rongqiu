@@ -139,6 +139,7 @@ rongqiu/
 | [**CAPABILITIES.md**](docs/CAPABILITIES.md) | **能力说明书**：13 项能力的判据、边界、与红线的关系 |
 | [COMPETITORS.md](docs/COMPETITORS.md) | 竞品跟踪：国内外理念相近的产品、差异与威胁模型 |
 | [INPUT-LAYER.md](docs/INPUT-LAYER.md) | **输入层**：框架判定、面选择、固定问句、离线/在线 |
+| [CONCEPT-EVOLUTION.md](docs/CONCEPT-EVOLUTION.md) | **概念演化**：三条不变量 / 已发生的扩展 / 待验证假设 |
 | [THEORY.md](docs/THEORY.md) | 理论：811、第一接触面、二元对立、分形 |
 | [FOUNDATIONS.md](docs/FOUNDATIONS.md) | 理论支撑：马尔可夫毯、Ashby、校准研究等 |
 | [VOICE.md](docs/VOICE.md) | 语音三层与第三层设计（研究线） |

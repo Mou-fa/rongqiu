@@ -257,7 +257,7 @@ python scripts/gh.py info     # 看 GitHub 仓库状态
 - **输入层**：`input_layer` 用确定性规则取 binary + 框架 + lexicon 命中面 + gaps；
   `/api/ask` 无论在线/离线都按面轮转挑 10 条问句，LLM 只做原核/搜索，不再自由挑面。
   `/api/judge` 用 probe 答复生成事实并完成一次 811 判断（不调模型）。
-- **公开说明**：[INPUT-LAYER.md](INPUT-LAYER.md)（输入层架构、在线/离线、当前边界）。
+- **公开说明**：[INPUT-LAYER.md](INPUT-LAYER.md)（输入层架构、在线/离线、当前边界）；[CONCEPT-EVOLUTION.md](CONCEPT-EVOLUTION.md)（不变量 / 扩展 / 待验证假设）。
 - **问句库 54 → 59**：新增 5 条水域/户外安全 probe + `decision.safety` 面；`decision.safety` 走行为/过去问题，不问天气（环境不计面）。
 - **回收页修复**：同一决策只显示最新 revision；未满 24 小时不再标「现在可以回收」。
 - **按面校准**：回答的 probe 归到所属面（`surface_answers`）；`journal.stats` 输出每个面的 facts / hits / hit_rate / brier；旧记录从「主动询问」事实反推面；校准页新增按面表格，少于 5 条事实不显示命中率。
