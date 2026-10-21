@@ -253,6 +253,9 @@ python scripts/gh.py info     # 看 GitHub 仓库状态
   效果：现有 journal 207 条 → **24 个决策**（2 已回收 / 22 待回收），校准不再重复计数。
 - 测试从 193 增到 **196**（新增 journal 去重测试；校准测试改用显式 decision_id）。
 - 输入层/离线编译器的私有原型在 `local/`（不入库）：CIR、lexicon、probe 选择、811 AIR、journal v2。
+- **离线路径**：没有 LLM / 搜索时，`input_layer.parse` 用确定性规则取 binary + 框架；
+  `/api/ask` 退回固定问句（当前是问句库前 10 条，待接 surface 选择器），
+  `/api/judge` 用 probe 答复生成事实并完成一次 811 判断（不调模型）。
 
 **注意**：公开仓库前仍要处理 §7④（旧 Tavily key 在历史里，虽已作废）。
 

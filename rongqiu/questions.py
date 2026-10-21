@@ -242,12 +242,15 @@ def _save_select_cache(cache: dict) -> None:
         pass
 
 
-def select(nucleus, has_history: bool = False, limit: int = 10) -> list[dict]:
+def select(nucleus, has_history: bool = False, limit: int = 10,
+           offline: bool = False, fallback_limit: int | None = None) -> list[dict]:
     """按原核从问句库里挑出这次该问的面。失败时退回整库。"""
     pool = [q for q in load()
             if not (q.get("when") == "first_time" and has_history)]
     if not pool:
         return []
+    if offline:
+        return pool[:max(1, fallback_limit or limit)]
     cfg = llm.load_config()
     if not llm.available(cfg):
         return pool

@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from rongqiu import baselines, calibration, common_root, crisis, drift, environment, indexer, journal, llm, node, nucleus, origin, paths, questions, review, search, soundscape, topology  # noqa: E402
+from rongqiu import baselines, calibration, common_root, crisis, drift, environment, indexer, input_layer, journal, llm, node, nucleus, origin, paths, questions, review, search, soundscape, topology  # noqa: E402
 
 app = FastAPI(title="绒球")
 STATIC = ROOT / "app" / "static"
@@ -73,18 +73,29 @@ def api_ask(body: AskBody):
     if crisis.detect(body.question):
         return crisis.response()
 
-    nu = nucleus.parse(body.question)
-    cfg = search.load_config()
-
-    # 组合词展开：聚餐 → 聚会、餐厅、餐饮、饭局…
-    # 目的是让整张网都成为候选库，而不是为每个事物建第一接触面数据库。
-    terms = search.expand_terms(nu.resource)
-    query = " ".join(terms[:10])
-    # 每个组合词单独搜，合并去重。塞进一个查询会被搜索引擎截断。
-    results = search.multi_search(terms, event=nu.event, cfg=cfg)
-    # min_hits 交给 indexer 的默认值（1）——真正的相关性判据是「共享资源」，
-    # 不是「命中几个成分」。写死 2 会把只出现资源的文章全筛掉。
-    cands = indexer.rank(nu, results)
+    offline = False
+    try:
+        nu = nucleus.parse(body.question)
+        cfg = search.load_config()
+        # 组合词展开：聚餐 → 聚会、餐厅、餐饮、饭局…
+        # 目的是让整张网都成为候选库，而不是为每个事物建第一接触面数据库。
+        terms = search.expand_terms(nu.resource)
+        query = " ".join(terms[:10])
+        # 每个组合词单独搜，合并去重。塞进一个查询会被搜索引擎截断。
+        results = search.multi_search(terms, event=nu.event, cfg=cfg)
+        # min_hits 交给 indexer 的默认值（1）——真正的相关性判据是「共享资源」，
+        # 不是「命中几个成分」。写死 2 会把只出现资源的文章全筛掉。
+        cands = indexer.rank(nu, results)
+    except Exception:
+        # 没有 LLM / 搜索不可用时，走确定性输入层：
+        # 仍然给出 binary + 固定问句，让用户用 yes/no 完成判断。
+        offline = True
+        nu = input_layer.parse(body.question)
+        cfg = None
+        terms = []
+        query = ""
+        results = []
+        cands = []
 
     # 系统先用 811 + REA 自己判一次，不要求用户做任何操作。
     # 「这些场景适用于我」本来就是假设槽该装的东西，系统可以自己承担这个假设。
@@ -121,16 +132,21 @@ def api_ask(body: AskBody):
 
     # 按原核挑面（M1 第三层的基础）：从问句库里挑这次最该问的 8–12 条。
     # 挑不出来时 select() 会退回整库——不把问题藏起来，也不假装知道该问什么。
-    selected = questions.select(nu, has_history=bool(journal.load()), limit=10)
+    selected = questions.select(nu, has_history=bool(journal.load()), limit=10,
+                                offline=offline, fallback_limit=10)
 
+    provider = "local"
+    if cfg is not None:
+        provider = cfg.provider if (cfg.api_key or cfg.provider in ("sogou", "local")) else "local"
     return {
         "nucleus": nu.as_dict(),
         "query": query,
         "terms": terms,
-        "provider": cfg.provider if (cfg.api_key or cfg.provider in ("sogou", "local")) else "local",
+        "provider": provider,
         "candidates": [c.as_dict() for c in cands],
         "stated": [b.as_dict() for b in nu.background],
         "total_hits": len(results),
+        "offline": offline,
         "auto": auto,
         # 跨决定共同根因：这个决定和别的决定共享的面（只陈述，不引导）
         "related": related if stated else [],
@@ -154,6 +170,7 @@ def api_judge(body: JudgeBody):
     # 主动询问的 yes/no 回答：方向由用户点击直接决定，不经过模型。
     # 必须单独建、单独放，不能混进 direction_of——否则用户点的 yes
     # 会被模型重新判一遍，可能改成中性甚至反对。
+    binary = (body.binary or "").strip() or input_layer.binary_of(body.question)
     qa_facts = questions.answers_to_facts([a.model_dump() for a in body.answers])
 
     others = [review.SceneFact(scene=s.text, source="用户自述",
@@ -163,15 +180,15 @@ def api_judge(body: JudgeBody):
                                 order=len(others) + i)
                for i, s in enumerate(body.selected)]
     if others:
-        review.direction_of(others, body.binary)
+        review.direction_of(others, binary)
         # 认领过的事实不允许弃权：判成中性的，逼它选一边。
         # 用户点了「这是我的情况」，这件事就不可能对决定没有方向。
-        review.force_binary(others, body.binary)
+        review.force_binary(others, binary)
 
     facts = qa_facts + others
     # 主动询问的答案方向已定；但如果其他事实全被判成中性，也要兜一次
-    review.force_binary(facts, body.binary)
-    nu = nucleus.Nucleus(agent="", event="", resource="", binary=body.binary)
+    review.force_binary(facts, binary)
+    nu = nucleus.Nucleus(agent="", event="", resource="", binary=binary)
     web = [f for f in facts if f.source not in ("用户自述", "主动询问")]
     if web:
         mapping = origin.cluster(web)
@@ -196,7 +213,7 @@ def api_judge(body: JudgeBody):
     else:
         assumption = "全网场景都不适用于我，只看我自己说出的处境"
     unknown = body.unknown or "当时是否存在我没考虑到的其他情况"
-    nd = node.build_from_review(body.binary, facts, assumption=assumption,
+    nd = node.build_from_review(binary, facts, assumption=assumption,
                                 unknown=unknown)
     j = nd.judge()
     if j is None:
