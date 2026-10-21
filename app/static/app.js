@@ -591,7 +591,7 @@ show("step-ask");
 loadEnv();                 // 便签先出时间，不等判断
 
 const TAB0 = (location.hash || "").replace("#", "");
-if (TAB0 === "pending" || TAB0 === "stats" || TAB0 === "soundscape") switchTab(TAB0);
+if (TAB0 === "pending" || TAB0 === "stats" || TAB0 === "settings" || TAB0 === "soundscape") switchTab(TAB0);
 
 const Q0 = new URLSearchParams(location.search).get("q");
 if (Q0) { $("#question").value = Q0; ask(); }
@@ -600,7 +600,7 @@ function switchTab(name) {
   document.querySelectorAll(".tabs button").forEach(b => {
     b.classList.toggle("on", b.dataset.tab === name);
   });
-  ["ask", "pending", "stats", "soundscape"].forEach(t => {
+  ["ask", "pending", "stats", "settings", "soundscape"].forEach(t => {
     const sec = document.getElementById("step-" + t);
     if (sec) sec.classList.toggle("hidden", t !== name);
   });
@@ -608,6 +608,7 @@ function switchTab(name) {
   if (name !== "soundscape") SOUND.stop();
   if (name === "pending") loadPending();
   if (name === "stats") loadStats();
+  if (name === "settings") loadSettings();
   if (name === "soundscape") loadSoundscape();
 }
 
