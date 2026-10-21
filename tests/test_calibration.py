@@ -54,7 +54,8 @@ def test_calibration_gap_sign(tmp_path, monkeypatch):
     monkeypatch.setattr(journal, "JOURNAL", tmp_path / "j.jsonl")
     monkeypatch.setattr(journal, "DATA", tmp_path)
     j = _judgment()                    # 5 条支持 → 判 yes，置信 0.71
-    ids = [journal.record(j, "要不要学英语")["id"] for _ in range(4)]
+    ids = [journal.record(j, "要不要学英语", decision_id=f"dec_test_{i}")["id"]
+           for i in range(4)]
     for i in ids:
         journal.resolve(i, "no")       # 结果全是没发生 → 全错
     s = journal.stats()
@@ -81,7 +82,7 @@ def test_by_n_is_the_811_test(tmp_path, monkeypatch):
     monkeypatch.setattr(journal, "JOURNAL", tmp_path / "j.jsonl")
     monkeypatch.setattr(journal, "DATA", tmp_path)
     for n in (3, 5, 8):
-        e = journal.record(_judgment(n), "要不要学英语")
+        e = journal.record(_judgment(n), "要不要学英语", decision_id=f"dec_n_{n}")
         journal.resolve(e["id"], "no")
     s = journal.stats()
     assert {b["n"] for b in s["by_n"]} == {3, 5, 8}

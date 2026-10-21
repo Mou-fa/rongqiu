@@ -118,7 +118,7 @@ rongqiu/
     search.yaml         搜索配置（不入库）
   data/                 语料、索引、判断日志（不入库）
   scripts/              工具脚本
-  tests/                193 个测试
+  tests/                196 个测试
   docs/                 全部文档
 ```
 

@@ -12,8 +12,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -51,6 +53,35 @@ def _new_id() -> str:
     return datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:4]
 
 
+def _norm_question(question: str) -> str:
+    return re.sub(r"\s+", "", (question or "").strip())
+
+
+def _derive_decision_id(question: str, ts: str) -> str:
+    """同一句话 + 同一天 = 同一个决策；跨天算新的决策。"""
+    day = (ts or "")[:10] or datetime.now().astimezone().strftime("%Y-%m-%d")
+    raw = _norm_question(question) + "|" + day
+    return "dec_" + hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
+
+
+def _decision_key(entry: dict) -> str:
+    did = entry.get("decision_id")
+    if did:
+        return str(did)
+    return _derive_decision_id(entry.get("nucleus", ""), entry.get("ts", ""))
+
+
+def _collapse(entries: list[dict]) -> list[dict]:
+    """每个 decision 只留最新 revision；旧数据没有 decision_id 的按 nucleus+日期归并。"""
+    latest: dict[str, dict] = {}
+    for e in entries:
+        key = _decision_key(e)
+        cur = latest.get(key)
+        if cur is None or str(e.get("ts", "")) >= str(cur.get("ts", "")):
+            latest[key] = e
+    return list(latest.values())
+
+
 def p_yes(entry: dict) -> float:
     """把「倾向 + 置信度」还原成 P(原核成立)。
 
@@ -62,13 +93,27 @@ def p_yes(entry: dict) -> float:
 
 
 def record(judgment, question: str, resolve_days: int | None = None,
-           extra: dict | None = None, user_lean: str | None = None) -> dict:
+           extra: dict | None = None, user_lean: str | None = None,
+           decision_id: str | None = None) -> dict:
     if resolve_days is None:
         resolve_days = resolve_days_for(question)
     DATA.mkdir(parents=True, exist_ok=True)
+    now = _now()
+    requested = decision_id
+    did = decision_id or _derive_decision_id(question, now)
+    same = [e for e in load() if _decision_key(e) == did]
+    prev = _collapse(same)[0] if same else None
+    if requested is None and prev is not None and prev.get("outcome") is not None:
+        # 同一个决策已经回收过：再判断算新决策，不覆盖旧结果
+        did = did + "-" + datetime.now().strftime("%H%M%S")
+        prev = None
+    revision = (int(prev.get("revision", 1)) + 1) if prev else 1
     entry = {
         "id": _new_id(),
-        "ts": _now(),
+        "ts": now,
+        "decision_id": did,
+        "revision": revision,
+        "supersedes": prev.get("id") if prev else None,
         "nucleus": question,
         "lean": judgment.lean,
         "confidence": round(float(judgment.confidence), 4),
@@ -115,12 +160,13 @@ def load() -> list[dict]:
 
 def pending(as_of: str | None = None) -> list[dict]:
     now = as_of or _now()
-    return [e for e in load() if e.get("outcome") is None and e.get("resolve_by", "") <= now]
+    return [e for e in _collapse(load())
+            if e.get("outcome") is None and e.get("resolve_by", "") <= now]
 
 
 def unresolved() -> list[dict]:
-    """全部还没回收的，含未到期的。"""
-    return [e for e in load() if e.get("outcome") is None]
+    """全部还没回收的，含未到期的。只回最新 revision。"""
+    return [e for e in _collapse(load()) if e.get("outcome") is None]
 
 
 def due_soon(days: int = 7, as_of: str | None = None) -> list[dict]:
@@ -151,9 +197,13 @@ def resolve(entry_id: str, outcome: str, note: str = "") -> dict | None:
             break
     if target is None:
         return None
-    target["outcome"] = outcome
-    target["outcome_note"] = note
-    target["resolved_at"] = _now()
+    key = _decision_key(target)
+    latest = next((e for e in _collapse(entries) if _decision_key(e) == key), target)
+    latest["decision_id"] = key
+    latest["outcome"] = outcome
+    latest["outcome_note"] = note
+    latest["resolved_at"] = _now()
+    target = latest
     with JOURNAL.open("w", encoding="utf-8") as fh:
         for e in entries:
             fh.write(json.dumps(e, ensure_ascii=False) + "\n")
@@ -169,7 +219,12 @@ def brier(entries: list[dict]) -> float:
 
 def stats(entries: list[dict] | None = None, bins: int = 5) -> dict:
     """校准报告。只看已回收的判断。"""
-    entries = entries if entries is not None else load()
+    if entries is None:
+        entries = _collapse(load())
+    else:
+        collapsible = [e for e in entries if e.get("decision_id") or e.get("nucleus")]
+        plain = [e for e in entries if not (e.get("decision_id") or e.get("nucleus"))]
+        entries = _collapse(collapsible) + plain
     resolved = [e for e in entries if e.get("outcome") in ("yes", "no")]
     out = {
         "total": len(entries),
