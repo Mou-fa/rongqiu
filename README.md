@@ -136,6 +136,7 @@ rongqiu/
 | [**DATA-CONSTITUTION.md**](docs/DATA-CONSTITUTION.md) | **数据宪法**：留形状不留内容；司法/政府请求怎么答；全球化数据架构 |
 | [**CAPABILITIES.md**](docs/CAPABILITIES.md) | **能力说明书**：13 项能力的判据、边界、与红线的关系 |
 | [COMPETITORS.md](docs/COMPETITORS.md) | 竞品跟踪：国内外理念相近的产品、差异与威胁模型 |
+| [INPUT-LAYER.md](docs/INPUT-LAYER.md) | **输入层**：框架判定、面选择、固定问句、离线/在线 |
 | [THEORY.md](docs/THEORY.md) | 理论：811、第一接触面、二元对立、分形 |
 | [FOUNDATIONS.md](docs/FOUNDATIONS.md) | 理论支撑：马尔可夫毯、Ashby、校准研究等 |
 | [VOICE.md](docs/VOICE.md) | 语音三层与第三层设计（研究线） |
@@ -152,8 +153,8 @@ rongqiu/
 |---|---|
 | 版本 | M0 + M1 第一版 |
 | 判向准确率 | 96%（25 题自建评测集） |
-| 测试 | 189 个，全绿 |
-| 问句库 | 54 条（16 类面，mk + domains） |
+| 测试 | 205 个，全绿 |
+| 问句库 | 59 条（16 类面，mk + domains） |
 | 本地语料 | 39 条 |
 | 三元组索引 | 789 条 |
 | 判断日志 | 204 条（0 条已回收） |

@@ -247,17 +247,20 @@ python scripts/gh.py info     # 看 GitHub 仓库状态
 
 ---
 
-## 12. 2026-10-22 这一轮做了什么
+## 13. 2026-10-22 这一轮做了什么
 
 - **journal 去重**：新增 `decision_id` / `revision` / `supersedes`。
   同一句话同一天重判只算一个决策（append revision，latest 胜）；跨天算新决策；
   旧数据没有 decision_id 的，按 nucleus + 日期归并。
   效果：现有 journal 207 条 → **24 个决策**（2 已回收 / 22 待回收），校准不再重复计数。
-- 测试从 193 增到 **196**（新增 journal 去重测试；校准测试改用显式 decision_id）。
-- 输入层/离线编译器的私有原型在 `local/`（不入库）：CIR、lexicon、probe 选择、811 AIR、journal v2。
+- 测试从 193 增到 **205**（journal 去重、pending API、离线/在线输入层测试）。
 - **输入层**：`input_layer` 用确定性规则取 binary + 框架 + lexicon 命中面 + gaps；
   `/api/ask` 无论在线/离线都按面轮转挑 10 条问句，LLM 只做原核/搜索，不再自由挑面。
   `/api/judge` 用 probe 答复生成事实并完成一次 811 判断（不调模型）。
+- **公开说明**：[INPUT-LAYER.md](INPUT-LAYER.md)（输入层架构、在线/离线、当前边界）。
+- **问句库 54 → 59**：新增 5 条水域/户外安全 probe + `decision.safety` 面；`decision.safety` 走行为/过去问题，不问天气（环境不计面）。
+- **回收页修复**：同一决策只显示最新 revision；未满 24 小时不再标「现在可以回收」。
+- **固定问句 UI**：改为行内布局（问题在左、是/否在右），8 条问句压到一屏内。
 
 **注意**：公开仓库前仍要处理 §7④（旧 Tavily key 在历史里，虽已作废）。
 
