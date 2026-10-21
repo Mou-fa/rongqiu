@@ -140,6 +140,7 @@ rongqiu/
 | [COMPETITORS.md](docs/COMPETITORS.md) | 竞品跟踪：国内外理念相近的产品、差异与威胁模型 |
 | [INPUT-LAYER.md](docs/INPUT-LAYER.md) | **输入层**：框架判定、面选择、固定问句、离线/在线 |
 | [CONCEPT-EVOLUTION.md](docs/CONCEPT-EVOLUTION.md) | **概念演化**：三条不变量 / 已发生的扩展 / 待验证假设 |
+| [LAYER-MAP.md](docs/LAYER-MAP.md) | **层地图**：纵向流水线 + 11 个底座层 + 层间契约 + 优先级 |
 | [THEORY.md](docs/THEORY.md) | 理论：811、第一接触面、二元对立、分形 |
 | [FOUNDATIONS.md](docs/FOUNDATIONS.md) | 理论支撑：马尔可夫毯、Ashby、校准研究等 |
 | [VOICE.md](docs/VOICE.md) | 语音三层与第三层设计（研究线） |
